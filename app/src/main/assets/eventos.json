@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "titulo": "Taller de Acuarela Botánica",
+    "fechaHora": "29 Mar - 10:00 hrs",
+    "ubicacion": "La Casona",
+    "categoria": "Talleres",
+    "esDestacado": true,
+    "esGratis": false,
+    "colorHex": "#29B6F6"
+  },
+  {
+    "id": 2,
+    "titulo": "Noche de Jazz en el Estado",
+    "fechaHora": "1 Abr - 20:00 hrs",
+    "ubicacion": "Teatro del Estado",
+    "categoria": "Conciertos",
+    "esDestacado": true,
+    "esGratis": false,
+    "colorHex": "#7E57C2"
+  },
+  {
+    "id": 3,
+    "titulo": "Feria del Café Xalapeño",
+    "fechaHora": "30 Mar - 11:00 hrs",
+    "ubicacion": "Parque Juárez",
+    "categoria": "Ferias",
+    "esDestacado": false,
+    "esGratis": true,
+    "colorHex": "#F57C00"
+  },
+  {
+    "id": 4,
+    "titulo": "Exposición de Arte Contemporáneo",
+    "fechaHora": "2 Abr - 16:00 hrs",
+    "ubicacion": "MAX",
+    "categoria": "Exposiciones",
+    "esDestacado": false,
+    "esGratis": false,
+    "colorHex": "#4FC3F7"
+  }
+]
