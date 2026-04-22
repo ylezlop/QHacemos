@@ -1,4 +1,5 @@
 package com.example.qhacemos
+import com.example.qhacemos.navigation.AppNavigation
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,8 +20,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Llamamos a la función composable que importamos del nuevo paquete
-                    PantallaPrincipal()
+
+                    AppNavigation()
                 }
             }
         }
