@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.qhacemos.datos.leerEventos
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.ui.graphics.toArgb
 
 @Composable
 fun EventDetailScreen(
@@ -43,7 +44,7 @@ fun EventDetailScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp)
-                .background(Color(0xFFFF7A1A))
+                .background(Color(evento.colorFondo.toArgb()))
         ) {
             IconButton(
                 onClick = { navController.popBackStack() },
@@ -62,7 +63,7 @@ fun EventDetailScreen(
 
             // 🔹 BADGES
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Badge("Feria")
+                Badge("${evento.categoria}")
                 if (evento.esGratis) Badge("Gratis", Color(0xFF4CAF50))
             }
 
