@@ -97,10 +97,10 @@ fun AppNavigation() {
         }
 
         composable("${AppScreens.EventDetail.route}/{eventoId}") { backStackEntryInterna ->
-            val eventoId = backStackEntryInterna.arguments?.getString("eventoId")?.toInt()
+            val eventoId = backStackEntryInterna.arguments?.getString("eventoId")?.toLongOrNull()
 
             EventDetailScreen(
-                eventoId = eventoId ?: 0,
+                eventoId = eventoId ?: 0L,
                 navController = navController
             )
         }

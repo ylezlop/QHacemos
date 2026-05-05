@@ -8,7 +8,7 @@ import java.util.Locale
 
 @Serializable
 data class Evento(
-    val id: Int = 0,
+    val id: Long = 0L,
     val titulo: String = "",
     val descripcion: String = "",
     @SerialName("fecha_inicio")

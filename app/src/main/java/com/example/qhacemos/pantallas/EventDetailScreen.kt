@@ -53,7 +53,7 @@ import java.util.Locale
 
 @Composable
 fun EventDetailScreen(
-    eventoId: Int,
+    eventoId: Long,
     navController: NavController
 ) {
     val context = LocalContext.current
@@ -178,9 +178,6 @@ fun EventDetailScreen(
                 InfoEvento("Lugar", eventoActual.ubicacion)
                 if (eventoActual.direccionCompleta.isNotBlank()) {
                     InfoEvento("Direccion", eventoActual.direccionCompleta)
-                }
-                if (eventoActual.tieneCoordenadas) {
-                    InfoEvento("Coordenadas", "${eventoActual.latitud}, ${eventoActual.longitud}")
                 }
                 InfoEvento(
                     "Organiza",
