@@ -1,5 +1,7 @@
-.gradle/ 
-.gradle-user/ 
-.idea/ 
-build/ 
-local.properties 
+.gradle/
+.gradle-user/
+.gradle-user-2/
+gradle/
+build/
+*.jar
+*.zip
