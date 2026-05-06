@@ -1,31 +1,53 @@
 package com.example.qhacemos.pantallas
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.qhacemos.datos.GestorAsistencias
 import com.example.qhacemos.datos.GestorAutenticacion
+import com.example.qhacemos.datos.ResultadoEventos
+import com.example.qhacemos.datos.cargarEventos
+import com.example.qhacemos.modelo.Evento
 import com.example.qhacemos.modelo.PerfilUsuario
+import com.example.qhacemos.navigation.AppScreens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -36,7 +58,67 @@ fun CuentaScreen(
     scope: CoroutineScope,
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     val backStackEntry by navController.currentBackStackEntryAsState()
+    var eventosUsuario by remember { mutableStateOf<List<Evento>>(emptyList()) }
+    var calificacionesEventoIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var cargandoEventosUsuario by remember { mutableStateOf(true) }
+    var mensajeEventosUsuario by remember { mutableStateOf<String?>(null) }
+    var eventoParaCalificar by remember { mutableStateOf<Evento?>(null) }
+    var intentoEventosUsuario by remember { mutableStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(perfil.id, intentoEventosUsuario) {
+        if (perfil.esAdmin) {
+            cargandoEventosUsuario = false
+            return@LaunchedEffect
+        }
+
+        cargandoEventosUsuario = true
+        mensajeEventosUsuario = null
+
+        val resultadoAsistencias = GestorAsistencias.cargarAsistenciasUsuario()
+        val asistencias = resultadoAsistencias.getOrElse { error ->
+            mensajeEventosUsuario = error.message ?: "No se pudieron cargar tus eventos."
+            emptyList()
+        }
+
+        val idsAsistidos = asistencias
+            .filter { it.estado != "cancelado" }
+            .map { it.eventoId }
+            .toSet()
+
+        val eventos = when (val resultado = cargarEventos(context)) {
+            is ResultadoEventos.Exito -> resultado.eventos
+            is ResultadoEventos.Error -> {
+                mensajeEventosUsuario = resultado.mensaje
+                resultado.eventosLocales
+            }
+        }
+
+        eventosUsuario = eventos
+            .filter { it.id in idsAsistidos }
+            .sortedBy { it.fechaInicioParseada }
+
+        calificacionesEventoIds = GestorAsistencias.cargarCalificacionesUsuario()
+            .getOrDefault(emptyList())
+            .map { it.eventoId }
+            .toSet()
+
+        cargandoEventosUsuario = false
+    }
+
+    DisposableEffect(lifecycleOwner, perfil.esAdmin) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (!perfil.esAdmin && event == Lifecycle.Event.ON_RESUME) {
+                intentoEventosUsuario++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -51,6 +133,7 @@ fun CuentaScreen(
                 .fillMaxSize()
                 .background(Color(0xFFF4F7FB))
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -78,41 +161,18 @@ fun CuentaScreen(
                 }
             }
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 2.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("Acceso actual", fontWeight = FontWeight.Bold)
-                    Text(
-                        text = if (perfil.esAdmin) {
-                            "Tu cuenta puede revisar y administrar el sistema."
-                        } else {
-                            "Tu cuenta puede explorar la app y despues organizara eventos como usuario creador."
-                        },
-                        color = Color.Gray
-                    )
-                    if (GestorAutenticacion.usaModoDemo()) {
-                        Text(
-                            text = "Esta sesion viene del modo demo local y no persiste al cerrar la app.",
-                            color = Color(0xFF0D47A1),
-                            fontSize = 13.sp
-                        )
+            if (!perfil.esAdmin) {
+                SeccionEventosUsuario(
+                    cargando = cargandoEventosUsuario,
+                    mensajeError = mensajeEventosUsuario,
+                    eventos = eventosUsuario,
+                    calificacionesEventoIds = calificacionesEventoIds,
+                    onEventoClick = { evento ->
+                        navController.navigate("${AppScreens.EventDetail.route}/${evento.id}")
+                    },
+                    onCalificarClick = { evento ->
+                        eventoParaCalificar = evento
                     }
-                }
-            }
-
-            if (perfil.esAdmin) {
-                AvisoCuenta(
-                    texto = "En las siguientes iteraciones podemos usar este rol para validacion de eventos, gestion de usuarios y metricas globales."
-                )
-            } else {
-                AvisoCuenta(
-                    texto = "Este perfil seguira siendo el que organiza, publica y administra sus propios eventos."
                 )
             }
 
@@ -128,6 +188,34 @@ fun CuentaScreen(
                 Text("Cerrar sesion")
             }
         }
+    }
+
+    eventoParaCalificar?.let { evento ->
+        DialogoCalificarOrganizadorPerfil(
+            evento = evento,
+            onDismiss = { eventoParaCalificar = null },
+            onEnviar = { rating ->
+                scope.launch {
+                    GestorAsistencias.calificarOrganizador(evento, rating)
+                        .onSuccess {
+                            Toast
+                                .makeText(context, "Calificacion registrada", Toast.LENGTH_SHORT)
+                                .show()
+                            eventoParaCalificar = null
+                            intentoEventosUsuario++
+                        }
+                        .onFailure { error ->
+                            Toast
+                                .makeText(
+                                    context,
+                                    error.message ?: "No se pudo registrar la calificacion",
+                                    Toast.LENGTH_SHORT
+                                )
+                                .show()
+                        }
+                }
+            }
+        )
     }
 }
 
@@ -167,4 +255,168 @@ fun EtiquetaRol(
             fontSize = 13.sp
         )
     }
+}
+
+@Composable
+fun SeccionEventosUsuario(
+    cargando: Boolean,
+    mensajeError: String?,
+    eventos: List<Evento>,
+    calificacionesEventoIds: Set<Long>,
+    onEventoClick: (Evento) -> Unit,
+    onCalificarClick: (Evento) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Eventos", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+
+            mensajeError?.let {
+                Text(it, color = Color(0xFFB3261E), fontSize = 13.sp)
+            }
+
+            if (cargando) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+                return@Column
+            }
+
+            if (eventos.isEmpty()) {
+                Text(
+                    text = "Cuando marques Asistire en un evento, aparecera aqui.",
+                    color = Color.Gray,
+                    fontSize = 13.sp
+                )
+                return@Column
+            }
+
+            val eventosActivos = eventos.filter { !it.yaOcurrio }
+            val eventosPasados = eventos.filter { it.yaOcurrio }
+
+            if (eventosActivos.isNotEmpty()) {
+                Text("Activos", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                eventosActivos.forEach { evento ->
+                    TarjetaEventoCuenta(
+                        evento = evento,
+                        etiqueta = "Pendiente",
+                        onEventoClick = onEventoClick
+                    )
+                }
+            }
+
+            if (eventosPasados.isNotEmpty()) {
+                Text("Pasados", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                eventosPasados.forEach { evento ->
+                    TarjetaEventoCuenta(
+                        evento = evento,
+                        etiqueta = if (evento.id in calificacionesEventoIds) "Calificado" else "Por calificar",
+                        onEventoClick = onEventoClick,
+                        onCalificarClick = if (evento.id in calificacionesEventoIds) {
+                            null
+                        } else {
+                            { onCalificarClick(evento) }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TarjetaEventoCuenta(
+    evento: Evento,
+    etiqueta: String,
+    onEventoClick: (Evento) -> Unit,
+    onCalificarClick: (() -> Unit)? = null
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFF8FAFC)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(evento.titulo, fontWeight = FontWeight.Bold)
+                    Text(evento.fechaTexto, color = Color.Gray, fontSize = 12.sp)
+                    Text(
+                        evento.organizadorNombre.ifBlank { "Organizador no disponible" },
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
+                }
+                Text(etiqueta, color = Color(0xFF0277BD), fontSize = 12.sp)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { onEventoClick(evento) }) {
+                    Text("Ver evento")
+                }
+                if (onCalificarClick != null) {
+                    Button(onClick = onCalificarClick) {
+                        Text("Calificar organizador")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DialogoCalificarOrganizadorPerfil(
+    evento: Evento,
+    onDismiss: () -> Unit,
+    onEnviar: (Int) -> Unit
+) {
+    var rating by remember { mutableStateOf(0) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Calificar organizador") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = evento.organizadorNombre.ifBlank { "Organizador" },
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                RatingStars(rating) {
+                    rating = it
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = rating in 1..5,
+                onClick = { onEnviar(rating) }
+            ) {
+                Text("Enviar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }

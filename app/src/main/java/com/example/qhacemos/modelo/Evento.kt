@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Serializable
@@ -50,7 +51,7 @@ data class Evento(
     @SerialName("color_hex")
     val colorHex: String = "#9E9E9E"
 ) {
-    // Propiedad calculada que transforma el texto "#FFFFFF" al Color de Compose
+
     val colorFondo: Color
         get() = try {
             Color(android.graphics.Color.parseColor(colorHex))
@@ -73,6 +74,19 @@ data class Evento(
             if (fechaInicio.isBlank()) null else OffsetDateTime.parse(fechaInicio)
         } catch (_: Exception) {
             null
+        }
+
+    val yaOcurrio: Boolean
+        get() = fechaInicioParseada?.isBefore(OffsetDateTime.now()) ?: false
+
+    val fechaTexto: String
+        get() {
+            val fecha = fechaInicioParseada ?: return fechaHora
+            val locale = Locale("es", "MX")
+            val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM, h:mm a", locale)
+            return fecha
+                .format(formatter)
+                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
         }
 
     fun esVisibleParaUsuarios(): Boolean {

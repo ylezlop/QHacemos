@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.qhacemos.datos.GestorAutenticacion
@@ -65,17 +64,6 @@ fun LoginScreen(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "Entra con tu cuenta para continuar con la cartelera y la gestion de eventos.",
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                )
-
-                if (GestorAutenticacion.usaModoDemo()) {
-                    AvisoLogin(
-                        texto = "Modo demo activo. Usa admin@qhacemos.test / Admin1234 o usuario@qhacemos.test / Usuario1234."
-                    )
-                }
 
                 OutlinedTextField(
                     value = email,
@@ -141,27 +129,7 @@ fun LoginScreen(
                         Text("Entrar")
                     }
                 }
-
-                Text(
-                    text = "Los usuarios admin y usuario normal comparten esta pantalla; el rol se toma desde tu perfil.",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
-    }
-}
-
-@Composable
-fun AvisoLogin(texto: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFE3F2FD), RoundedCornerShape(16.dp))
-            .padding(14.dp)
-    ) {
-        Text(text = texto, color = Color(0xFF0D47A1), fontSize = 13.sp)
     }
 }

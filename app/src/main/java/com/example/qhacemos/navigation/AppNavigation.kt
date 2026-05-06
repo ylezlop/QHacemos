@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import com.example.qhacemos.datos.GestorAutenticacion
 import com.example.qhacemos.modelo.PerfilUsuario
 import com.example.qhacemos.pantallas.CuentaScreen
@@ -96,7 +97,10 @@ fun AppNavigation() {
             }
         }
 
-        composable("${AppScreens.EventDetail.route}/{eventoId}") { backStackEntryInterna ->
+        composable(
+            route = "${AppScreens.EventDetail.route}/{eventoId}",
+            deepLinks = listOf(navDeepLink { uriPattern = "qhacemos://evento/{eventoId}" })
+        ) { backStackEntryInterna ->
             val eventoId = backStackEntryInterna.arguments?.getString("eventoId")?.toLongOrNull()
 
             EventDetailScreen(

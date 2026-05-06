@@ -1,5 +1,9 @@
 package com.example.qhacemos.pantallas
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,10 +35,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,11 +50,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.example.qhacemos.datos.GestorAsistencias
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
 import com.example.qhacemos.modelo.Evento
 import com.example.qhacemos.navigation.AppScreens
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -57,11 +68,15 @@ fun EventDetailScreen(
     navController: NavController
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var evento by remember { mutableStateOf<Evento?>(null) }
     var cargandoEvento by remember { mutableStateOf(true) }
     var mensajeError by remember { mutableStateOf<String?>(null) }
-    var mostrarDialogo by remember { mutableStateOf(false) }
+    var mostrarDialogoCompartir by remember { mutableStateOf(false) }
+    var asistiraEvento by remember { mutableStateOf(false) }
+    var guardandoAsistencia by remember { mutableStateOf(false) }
     var intentoCarga by remember { mutableStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(eventoId, context, intentoCarga) {
         cargandoEvento = true
@@ -77,7 +92,21 @@ fun EventDetailScreen(
                 evento = resultado.eventosLocales.find { it.id == eventoId }
             }
         }
+
+        asistiraEvento = GestorAsistencias.asistiraAEvento(eventoId).getOrDefault(false)
         cargandoEvento = false
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                intentoCarga++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     if (cargandoEvento) {
@@ -150,31 +179,18 @@ fun EventDetailScreen(
                         eventoActual.costoTexto,
                         if (eventoActual.esGratis) Color(0xFF4CAF50) else Color(0xFFFF7A1A)
                     )
-                    if (eventoActual.estado.isNotBlank()) {
-                        Badge(eventoActual.estado, Color(0xFF607D8B))
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = eventoActual.titulo,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    TextButton(onClick = { mostrarDialogo = true }) {
-                        Text("Calificar")
-                    }
-                }
+                Text(
+                    text = eventoActual.titulo,
+                    style = MaterialTheme.typography.titleLarge
+                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                InfoEvento("Fecha", eventoActual.fechaHora)
+                InfoEvento("Fecha", eventoActual.fechaTexto)
                 InfoEvento("Lugar", eventoActual.ubicacion)
                 if (eventoActual.direccionCompleta.isNotBlank()) {
                     InfoEvento("Direccion", eventoActual.direccionCompleta)
@@ -205,18 +221,50 @@ fun EventDetailScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
+                    val puedeMarcarAsistencia = !eventoActual.yaOcurrio && !asistiraEvento && !guardandoAsistencia
+
                     Button(
-                        onClick = {},
+                        onClick = {
+                            scope.launch {
+                                guardandoAsistencia = true
+                                val resultado = GestorAsistencias.registrarAsistencia(eventoActual)
+                                resultado
+                                    .onSuccess {
+                                        asistiraEvento = true
+                                        Toast
+                                            .makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT)
+                                            .show()
+                                    }
+                                    .onFailure { error ->
+                                        Toast
+                                            .makeText(
+                                                context,
+                                                error.message ?: "No se pudo registrar tu asistencia",
+                                                Toast.LENGTH_SHORT
+                                            )
+                                            .show()
+                                    }
+                                guardandoAsistencia = false
+                            }
+                        },
+                        enabled = puedeMarcarAsistencia,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A1A))
                     ) {
-                        Text("Guardar evento")
+                        Text(
+                            when {
+                                eventoActual.yaOcurrio -> "Evento pasado"
+                                asistiraEvento -> "Ya marcado"
+                                guardandoAsistencia -> "Guardando"
+                                else -> "Asistire"
+                            }
+                        )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Button(
-                        onClick = {},
+                        onClick = { mostrarDialogoCompartir = true },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81D4FA))
                     ) {
@@ -229,9 +277,10 @@ fun EventDetailScreen(
         }
     }
 
-    if (mostrarDialogo) {
-        DialogoCalificacion(
-            onDismiss = { mostrarDialogo = false }
+    if (mostrarDialogoCompartir) {
+        DialogoCompartirEvento(
+            evento = eventoActual,
+            onDismiss = { mostrarDialogoCompartir = false }
         )
     }
 }
@@ -445,4 +494,83 @@ fun DialogoCalificacion(
             }
         }
     )
+}
+
+@Composable
+fun DialogoCompartirEvento(
+    evento: Evento,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val link = evento.linkCompartir()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Compartir evento") },
+        text = {
+            Column {
+                Text(
+                    text = "Link para compartir evento",
+                    color = Color.DarkGray
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFF5F5F5),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = link,
+                        modifier = Modifier.padding(12.dp),
+                        color = Color(0xFF0277BD),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                compartirEvento(context, evento)
+                onDismiss()
+            }) {
+                Text("Compartir")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                copiarLinkEvento(context, link)
+                onDismiss()
+            }) {
+                Text("Copiar link")
+            }
+        }
+    )
+}
+
+fun Evento.linkCompartir(): String {
+    return "qhacemos://evento/$id"
+}
+
+fun compartirEvento(context: Context, evento: Evento) {
+    val texto = buildString {
+        appendLine(evento.titulo)
+        if (evento.fechaTexto.isNotBlank()) appendLine(evento.fechaTexto)
+        if (evento.ubicacion.isNotBlank()) appendLine(evento.ubicacion)
+        appendLine()
+        append("Abrir en QHacemos: ${evento.linkCompartir()}")
+    }
+
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, evento.titulo)
+        putExtra(Intent.EXTRA_TEXT, texto)
+    }
+
+    context.startActivity(Intent.createChooser(intent, "Compartir evento"))
+}
+
+fun copiarLinkEvento(context: Context, link: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("Link del evento", link))
+    Toast.makeText(context, "Link copiado", Toast.LENGTH_SHORT).show()
 }

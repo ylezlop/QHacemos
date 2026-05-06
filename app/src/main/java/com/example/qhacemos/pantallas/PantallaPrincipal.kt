@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,12 +59,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
 import com.example.qhacemos.modelo.Evento
 import com.example.qhacemos.navigation.AppScreens
+import java.text.Normalizer
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -93,7 +98,10 @@ fun PantallaPrincipal(navController: NavController) {
     var filtroPrecio by remember { mutableStateOf(FILTRO_PRECIO_TODOS) }
     var filtroFecha by remember { mutableStateOf("") }
     var filtroUbicacion by remember { mutableStateOf("") }
+    var filtroFechaActivo by remember { mutableStateOf(false) }
+    var filtroUbicacionActivo by remember { mutableStateOf(false) }
     var mostrarFiltros by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(contexto, intentoCarga) {
         cargandoEventos = true
@@ -110,6 +118,18 @@ fun PantallaPrincipal(navController: NavController) {
             }
         }
         cargandoEventos = false
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                intentoCarga++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Scaffold(
@@ -145,6 +165,29 @@ fun PantallaPrincipal(navController: NavController) {
                 )
             }
 
+            if (hayFiltrosActivos(busqueda, categoriaSeleccionada, filtroPrecio, filtroFecha, filtroUbicacion)) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                busqueda = ""
+                                categoriaSeleccionada = CATEGORIA_TODOS
+                                filtroPrecio = FILTRO_PRECIO_TODOS
+                                filtroFecha = ""
+                                filtroUbicacion = ""
+                                filtroFechaActivo = false
+                                filtroUbicacionActivo = false
+                            }
+                        ) {
+                            Text("Limpiar filtros", color = Color(0xFF03A9F4))
+                        }
+                    }
+                }
+            }
+
             mensajeError?.let { error ->
                 item {
                     MensajeErrorEventos(
@@ -173,50 +216,48 @@ fun PantallaPrincipal(navController: NavController) {
                     fecha = filtroFecha,
                     ubicacion = filtroUbicacion
                 )
+                val hayFiltros = hayFiltrosActivos(
+                    busqueda,
+                    categoriaSeleccionada,
+                    filtroPrecio,
+                    filtroFecha,
+                    filtroUbicacion
+                )
 
-                item {
-                    val destacados = eventosFiltrados.filter { it.esDestacado }
-                    if (destacados.isNotEmpty()) {
-                        SeccionEventosDestacados(
-                            eventos = destacados,
-                            onEventoClick = { evento ->
-                                navController.navigate("event_detail/${evento.id}")
-                            }
+                if (!hayFiltros) {
+                    item {
+                        val destacados = eventosFiltrados.filter { it.esDestacado }
+                        if (destacados.isNotEmpty()) {
+                            SeccionEventosDestacados(
+                                eventos = destacados,
+                                onEventoClick = { evento ->
+                                    navController.navigate("event_detail/${evento.id}")
+                                }
+                            )
+                        }
+                    }
+
+                    item {
+                        Text(
+                            text = "Proximos eventos",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                item {
-                    Text(
-                        text = "Próximos eventos",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                val eventosAMostrar = if (hayFiltros) {
+                    eventosFiltrados
+                } else {
+                    eventosFiltrados.filter { !it.esDestacado }
                 }
-
-                val proximos = eventosFiltrados.filter { !it.esDestacado }
 
                 if (eventosFiltrados.isEmpty()) {
                     item {
-                        MensajeSinResultados(
-                            hayFiltros = hayFiltrosActivos(
-                                busqueda,
-                                categoriaSeleccionada,
-                                filtroPrecio,
-                                filtroFecha,
-                                filtroUbicacion
-                            ),
-                            onLimpiar = {
-                                busqueda = ""
-                                categoriaSeleccionada = CATEGORIA_TODOS
-                                filtroPrecio = FILTRO_PRECIO_TODOS
-                                filtroFecha = ""
-                                filtroUbicacion = ""
-                            }
-                        )
+                        MensajeSinResultados(hayFiltros = hayFiltros)
                     }
                 } else {
-                    items(proximos) { evento ->
+                    items(eventosAMostrar) { evento ->
                         TarjetaProximoEvento(
                             evento = evento,
                             onClick = {
@@ -236,15 +277,28 @@ fun PantallaPrincipal(navController: NavController) {
             precioSeleccionado = filtroPrecio,
             fecha = filtroFecha,
             ubicacion = filtroUbicacion,
-            onPrecioChange = { filtroPrecio = it },
+            fechaActiva = filtroFechaActivo,
+            ubicacionActiva = filtroUbicacionActivo,
+            onPrecioChange = { opcion ->
+                filtroPrecio = opcion
+                if (opcion == FILTRO_PRECIO_TODOS) {
+                    filtroFechaActivo = false
+                    filtroUbicacionActivo = false
+                    filtroFecha = ""
+                    filtroUbicacion = ""
+                }
+            },
             onFechaChange = { filtroFecha = it },
             onUbicacionChange = { filtroUbicacion = it },
-            onDismiss = { mostrarFiltros = false },
-            onLimpiar = {
-                filtroPrecio = FILTRO_PRECIO_TODOS
-                filtroFecha = ""
-                filtroUbicacion = ""
-            }
+            onFechaActivaChange = { activo ->
+                filtroFechaActivo = activo
+                if (!activo) filtroFecha = ""
+            },
+            onUbicacionActivaChange = { activo ->
+                filtroUbicacionActivo = activo
+                if (!activo) filtroUbicacion = ""
+            },
+            onDismiss = { mostrarFiltros = false }
         )
     }
 }
@@ -338,7 +392,7 @@ fun SeccionBarraBusqueda(
         modifier = Modifier.fillMaxWidth(),
         placeholder = {
             Text(
-                "Buscar eventos, organizadores o lugares...",
+                "Buscar",
                 color = Color.Gray,
                 fontSize = 14.sp
             )
@@ -407,18 +461,21 @@ fun DialogoFiltrosEventos(
     precioSeleccionado: String,
     fecha: String,
     ubicacion: String,
+    fechaActiva: Boolean,
+    ubicacionActiva: Boolean,
     onPrecioChange: (String) -> Unit,
     onFechaChange: (String) -> Unit,
     onUbicacionChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onLimpiar: () -> Unit
+    onFechaActivaChange: (Boolean) -> Unit,
+    onUbicacionActivaChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filtros") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Precio", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Opciones", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(FILTRO_PRECIO_TODOS, "Gratis", "Pago").forEach { opcion ->
                         val seleccionada = precioSeleccionado == opcion
@@ -438,42 +495,74 @@ fun DialogoFiltrosEventos(
                     }
                 }
 
-                OutlinedTextField(
-                    value = fecha,
-                    onValueChange = onFechaChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Fecha") },
-                    placeholder = { Text("Ej. 29 Mar, 1 Abr, viernes") },
-                    singleLine = true
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FiltroToggle(
+                        texto = "Fecha",
+                        seleccionado = fechaActiva,
+                        onClick = { onFechaActivaChange(!fechaActiva) }
+                    )
+                    FiltroToggle(
+                        texto = "Ubicacion",
+                        seleccionado = ubicacionActiva,
+                        onClick = { onUbicacionActivaChange(!ubicacionActiva) }
+                    )
+                }
 
-                OutlinedTextField(
-                    value = ubicacion,
-                    onValueChange = onUbicacionChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Ubicacion") },
-                    placeholder = { Text("Lugar, colonia o ciudad") },
-                    singleLine = true
-                )
+                if (fechaActiva) {
+                    OutlinedTextField(
+                        value = fecha,
+                        onValueChange = onFechaChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Fecha") },
+                        placeholder = { Text("Ej. 29 Mar, 1 Abr, viernes") },
+                        singleLine = true
+                    )
+                }
+
+                if (ubicacionActiva) {
+                    OutlinedTextField(
+                        value = ubicacion,
+                        onValueChange = onUbicacionChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Ubicacion") },
+                        placeholder = { Text("Lugar, colonia o ciudad") },
+                        singleLine = true
+                    )
+                }
             }
         },
         confirmButton = {
             Button(onClick = onDismiss) {
                 Text("Aplicar")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onLimpiar) {
-                Text("Limpiar")
-            }
         }
     )
 }
 
 @Composable
+fun FiltroToggle(
+    texto: String,
+    seleccionado: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        color = if (seleccionado) Color(0xFF4FC3F7) else Color.White,
+        border = if (!seleccionado) BorderStroke(1.dp, Color(0xFFE0E0E0)) else null
+    ) {
+        Text(
+            text = texto,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            color = if (seleccionado) Color.White else Color.DarkGray,
+            fontSize = 13.sp
+        )
+    }
+}
+
+@Composable
 fun MensajeSinResultados(
-    hayFiltros: Boolean,
-    onLimpiar: () -> Unit
+    hayFiltros: Boolean
 ) {
     Box(
         modifier = Modifier
@@ -484,7 +573,7 @@ fun MensajeSinResultados(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = if (hayFiltros) {
-                    "No encontramos eventos con esos terminos."
+                    "no se encontraron coincidencias"
                 } else {
                     "Aun no hay eventos proximos en esta area."
                 },
@@ -492,22 +581,14 @@ fun MensajeSinResultados(
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = if (hayFiltros) {
-                    "Prueba con una categoria distinta o flexibiliza tu busqueda."
-                } else {
-                    "Prueba ampliando el radio de busqueda."
-                },
-                color = Color.Gray,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
-            if (hayFiltros) {
-                Spacer(modifier = Modifier.height(10.dp))
-                TextButton(onClick = onLimpiar) {
-                    Text("Limpiar filtros", color = Color(0xFF03A9F4))
-                }
+            if (!hayFiltros) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Prueba ampliando el radio de busqueda.",
+                    color = Color.Gray,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -586,7 +667,8 @@ fun Evento.perteneceACategoria(categoriaUi: String): Boolean {
         )
 
         "Talleres y Recreacion" -> categoriaEvento in listOf(
-            "talleres", "clases", "pintura", "ceramica", "cocina", "recreacion"
+            "talleres", "clases", "pintura", "ceramica", "cocina", "recreacion",
+            "talleres y recreacion"
         )
 
         "Mercaditos y Bazares Locales" -> categoriaEvento in listOf(
@@ -610,7 +692,10 @@ fun Evento.perteneceACategoria(categoriaUi: String): Boolean {
 }
 
 fun String.normalizarBusqueda(): String {
-    return lowercase()
+    val sinAcentos = Normalizer.normalize(this, Normalizer.Form.NFD)
+        .replace("\\p{Mn}+".toRegex(), "")
+
+    return sinAcentos.lowercase()
         .replace("á", "a")
         .replace("é", "e")
         .replace("í", "i")
@@ -633,13 +718,13 @@ fun Evento.coincideConFecha(fechaNormalizada: String): Boolean {
             fechaParseada.month.getDisplayName(TextStyle.FULL, locale),
             fechaParseada.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
             fechaParseada.year.toString(),
-            fechaHora
+            fechaTexto
         ).joinToString(" ").normalizarBusqueda()
 
         return textoFecha.contains(fechaNormalizada)
     }
 
-    return fechaHora.normalizarBusqueda().contains(fechaNormalizada)
+    return fechaTexto.normalizarBusqueda().contains(fechaNormalizada)
 }
 
 @Composable
@@ -714,7 +799,7 @@ fun TarjetaEventoDestacado(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${evento.fechaHora} - ${evento.ubicacion}",
+                    text = "${evento.fechaTexto} - ${evento.ubicacion}",
                     color = Color.Gray,
                     fontSize = 12.sp,
                     maxLines = 1
@@ -798,7 +883,7 @@ fun TarjetaProximoEvento(
                     Spacer(modifier = Modifier.width(4.dp))
 
                     Text(
-                        text = evento.fechaHora,
+                        text = evento.fechaTexto,
                         color = Color.Gray,
                         fontSize = 12.sp
                     )
