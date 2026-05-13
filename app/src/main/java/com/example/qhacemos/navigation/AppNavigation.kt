@@ -24,6 +24,7 @@ import com.example.qhacemos.pantallas.EventDetailScreen
 import com.example.qhacemos.pantallas.LoginScreen
 import com.example.qhacemos.pantallas.PantallaPrincipal
 import kotlinx.coroutines.launch
+import com.example.qhacemos.pantallas.CrearEventoScreen
 
 @Composable
 fun AppNavigation() {
@@ -108,5 +109,13 @@ fun AppNavigation() {
                 navController = navController
             )
         }
+
+        composable(AppScreens.CrearEvento.route) {
+            CrearEventoScreen(
+                navController = navController,
+                perfilActual = perfilActual
+            )
+        }
     }
+
 }
