@@ -4,8 +4,11 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val ZONA_EVENTOS = ZoneId.of("America/Mexico_City")
 
 @Serializable
 data class Evento(
@@ -81,7 +84,7 @@ data class Evento(
 
     val fechaTexto: String
         get() {
-            val fecha = fechaInicioParseada ?: return fechaHora
+            val fecha = fechaInicioParseada?.atZoneSameInstant(ZONA_EVENTOS) ?: return fechaHora
             val locale = Locale("es", "MX")
             val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM, h:mm a", locale)
             return fecha

@@ -34,6 +34,8 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"${localProperty("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperty("SUPABASE_ANON_KEY")}\"")
+        buildConfigField("String", "MAPS_API_KEY", "\"${localProperty("MAPS_API_KEY")}\"")
+        manifestPlaceholders["MAPS_API_KEY"] = localProperty("MAPS_API_KEY")
     }
 
     buildTypes {
@@ -68,6 +70,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation(libs.androidx.navigation.compose)
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.maps.android:maps-compose:8.3.0")
+    implementation("com.google.android.gms:play-services-maps:19.2.0")
     implementation(platform(libs.supabase.bom))
     implementation(libs.supabase.auth)
     implementation(libs.supabase.postgrest)

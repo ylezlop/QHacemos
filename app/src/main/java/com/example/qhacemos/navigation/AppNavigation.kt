@@ -19,9 +19,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
 import com.example.qhacemos.datos.GestorAutenticacion
 import com.example.qhacemos.modelo.PerfilUsuario
+import com.example.qhacemos.pantallas.BrujulaEventosScreen
 import com.example.qhacemos.pantallas.CuentaScreen
 import com.example.qhacemos.pantallas.EventDetailScreen
 import com.example.qhacemos.pantallas.LoginScreen
+import com.example.qhacemos.pantallas.MisEventosScreen
 import com.example.qhacemos.pantallas.PantallaPrincipal
 import kotlinx.coroutines.launch
 import com.example.qhacemos.pantallas.CrearEventoScreen
@@ -98,6 +100,10 @@ fun AppNavigation() {
             }
         }
 
+        composable(AppScreens.Compass.route) {
+            BrujulaEventosScreen(navController = navController)
+        }
+
         composable(
             route = "${AppScreens.EventDetail.route}/{eventoId}",
             deepLinks = listOf(navDeepLink { uriPattern = "qhacemos://evento/{eventoId}" })
@@ -112,6 +118,22 @@ fun AppNavigation() {
 
         composable(AppScreens.CrearEvento.route) {
             CrearEventoScreen(
+                navController = navController,
+                perfilActual = perfilActual
+            )
+        }
+
+        composable("${AppScreens.EditarEvento.route}/{eventoId}") { backStackEntryInterna ->
+            val eventoId = backStackEntryInterna.arguments?.getString("eventoId")?.toLongOrNull()
+            CrearEventoScreen(
+                navController = navController,
+                perfilActual = perfilActual,
+                eventoId = eventoId
+            )
+        }
+
+        composable(AppScreens.MisEventos.route) {
+            MisEventosScreen(
                 navController = navController,
                 perfilActual = perfilActual
             )

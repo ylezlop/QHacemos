@@ -22,9 +22,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -42,6 +43,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.qhacemos.datos.GestorAsistencias
 import com.example.qhacemos.datos.GestorAutenticacion
+import com.example.qhacemos.datos.GestorSuscripciones
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
 import com.example.qhacemos.modelo.Evento
@@ -49,13 +51,6 @@ import com.example.qhacemos.modelo.PerfilUsuario
 import com.example.qhacemos.navigation.AppScreens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.ui.unit.sp
-import com.example.qhacemos.datos.GestorEventosOrganizador
-import com.example.qhacemos.datos.GestorSuscripciones
 
 @Composable
 fun CuentaScreen(
@@ -66,49 +61,29 @@ fun CuentaScreen(
 ) {
     val context = LocalContext.current
     val backStackEntry by navController.currentBackStackEntryAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     var eventosUsuario by remember { mutableStateOf<List<Evento>>(emptyList()) }
     var calificacionesEventoIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var cargandoEventosUsuario by remember { mutableStateOf(true) }
     var mensajeEventosUsuario by remember { mutableStateOf<String?>(null) }
     var eventoParaCalificar by remember { mutableStateOf<Evento?>(null) }
     var intentoEventosUsuario by remember { mutableStateOf(0) }
-    val lifecycleOwner = LocalLifecycleOwner.current
 
-    var listaEventosPropios by remember { mutableStateOf<List<Evento>>(emptyList()) }
     var esSuscrito by remember { mutableStateOf(false) }
-    var cargandoGestion by remember { mutableStateOf(true) }
-
     var mostrarModalSuscripcion by remember { mutableStateOf(false) }
-    var eventoADestacar by remember { mutableStateOf<Evento?>(null) }
-    var periodoDestacar by remember { mutableStateOf("1 semana") }
-    var eventoParaMetricas by remember { mutableStateOf<Evento?>(null) }
-
-
-
 
     LaunchedEffect(perfil.id, intentoEventosUsuario) {
         if (perfil.esAdmin) {
             cargandoEventosUsuario = false
-            cargandoGestion = true
-
-            val resultadoSuscripcion = GestorSuscripciones.verificarSuscripcionActiva(perfil.id)
-            if (resultadoSuscripcion.isSuccess) {
-                esSuscrito = resultadoSuscripcion.getOrDefault(false)
-            }
-
-            if (!perfil.esAdmin) {
-                val resultadoEventos = GestorEventosOrganizador.obtenerEventosPorOrganizador(perfil.id)
-                if (resultadoEventos.isSuccess) {
-                    listaEventosPropios = resultadoEventos.getOrDefault(emptyList())
-                }
-            }
-
-            cargandoGestion = false
             return@LaunchedEffect
         }
 
         cargandoEventosUsuario = true
         mensajeEventosUsuario = null
+
+        GestorSuscripciones.verificarSuscripcionActiva(perfil.id)
+            .onSuccess { esSuscrito = it }
 
         val resultadoAsistencias = GestorAsistencias.cargarAsistenciasUsuario()
         val asistencias = resultadoAsistencias.getOrElse { error ->
@@ -194,9 +169,7 @@ fun CuentaScreen(
                 }
             }
 
-            // Sección interactiva para creadores de eventos
             if (!perfil.esAdmin) {
-                // CU-16: Tarjeta informativa del estado de la suscripción
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -204,7 +177,7 @@ fun CuentaScreen(
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
-                            text = if (esSuscrito) "Estado: Suscripción Activa" else "Estado: Cuenta Gratuita",
+                            text = if (esSuscrito) "Estado: suscripcion activa" else "Estado: cuenta gratuita",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (esSuscrito) Color(0xFF1B5E20) else Color.Gray
@@ -221,85 +194,26 @@ fun CuentaScreen(
                                 onClick = { mostrarModalSuscripcion = true },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Contratar Suscripción Mensual")
+                                Text("Contratar suscripcion mensual")
                             }
                         }
                     }
                 }
 
-                // CU-15: Botón de acceso rápido para crear un nuevo evento
                 Button(
                     onClick = { navController.navigate(AppScreens.CrearEvento.route) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Publicar Nuevo Evento (CU-15)")
+                    Text("Publicar nuevo evento")
                 }
 
-                // CU-17 y CU-18: Historial de autoría y analíticas
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    tonalElevation = 2.dp
+                Button(
+                    onClick = { navController.navigate(AppScreens.MisEventos.route) },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("Mis Eventos Creados", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-
-                        if (cargandoGestion) {
-                            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
-                            }
-                        } else if (listaEventosPropios.isEmpty()) {
-                            Text(
-                                text = "Aún no has creado eventos en la plataforma.",
-                                color = Color.Gray,
-                                fontSize = 13.sp
-                            )
-                        } else {
-                            listaEventosPropios.forEach { evento ->
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
-                                ) {
-                                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(evento.titulo, fontWeight = FontWeight.Bold)
-                                        Text("Fecha: ${evento.fechaInicio} | Ubicación: ${evento.ubicacion}", fontSize = 12.sp, color = Color.Gray)
-                                        Text("Estado: ${evento.estado.replace("_", " ").uppercase()}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0277BD))
-
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            // CU-17: Destacar publicación con validación si ya ocurrió
-                                            OutlinedButton(
-                                                onClick = {
-                                                    if (evento.yaOcurrio) {
-                                                        Toast.makeText(context, "Error: No se puede destacar un evento que ya ocurrió", Toast.LENGTH_LONG).show()
-                                                    } else {
-                                                        eventoADestacar = evento
-                                                    }
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text(if (evento.esDestacado) "★ ¡Destacado!" else "Destacar")
-                                            }
-
-                                            // CU-18: Panel de interacciones
-                                            OutlinedButton(
-                                                onClick = { eventoParaMetricas = evento },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("Estadísticas")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Text("Mis eventos")
                 }
-            }
 
-            if (!perfil.esAdmin) {
                 SeccionEventosUsuario(
                     cargando = cargandoEventosUsuario,
                     mensajeError = mensajeEventosUsuario,
@@ -336,40 +250,37 @@ fun CuentaScreen(
                 scope.launch {
                     GestorAsistencias.calificarOrganizador(evento, rating)
                         .onSuccess {
-                            Toast
-                                .makeText(context, "Calificacion registrada", Toast.LENGTH_SHORT)
-                                .show()
+                            Toast.makeText(context, "Calificacion registrada", Toast.LENGTH_SHORT).show()
                             eventoParaCalificar = null
                             intentoEventosUsuario++
                         }
                         .onFailure { error ->
-                            Toast
-                                .makeText(
-                                    context,
-                                    error.message ?: "No se pudo registrar la calificacion",
-                                    Toast.LENGTH_SHORT
-                                )
-                                .show()
+                            Toast.makeText(
+                                context,
+                                error.message ?: "No se pudo registrar la calificacion",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                 }
             }
         )
     }
 
-    // Modales correspondientes a los casos de uso CU-16, CU-17 y CU-18
-
-    // MODAL CU-16: Contratación de Suscripción Mensual
     if (mostrarModalSuscripcion) {
         AlertDialog(
             onDismissRequest = { mostrarModalSuscripcion = false },
-            title = { Text("Suscripción Mensual Creador") },
+            title = { Text("Suscripcion mensual creador") },
             text = {
                 Column {
                     Text("Beneficios principales:", fontWeight = FontWeight.Bold)
-                    Text("• Publicación de eventos de forma ilimitada durante 30 días.")
-                    Text("• Tus publicaciones pasan a revisión con prioridad alta.")
+                    Text("- Publicacion de eventos de forma ilimitada durante 30 dias.")
+                    Text("- Tus publicaciones pasan a revision con prioridad alta.")
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Precio: $299.00 MXN al mes", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "Precio: $299.00 MXN al mes",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             },
             confirmButton = {
@@ -380,99 +291,18 @@ fun CuentaScreen(
                             if (resultado.isSuccess) {
                                 esSuscrito = true
                                 mostrarModalSuscripcion = false
-                                Toast.makeText(context, "Suscripción Activa. ¡Disfruta tus beneficios!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Suscripcion activa.", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
-                ) { Text("Confirmar Pago") }
-            },
-            dismissButton = {
-                TextButton(onClick = { mostrarModalSuscripcion = false }) { Text("Cancelar") }
-            }
-        )
-    }
-
-    // CU-17
-    eventoADestacar?.let { evento ->
-        AlertDialog(
-            onDismissRequest = { eventoADestacar = null },
-            title = { Text("Destacar Evento: ${evento.titulo}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Selecciona el tiempo de promoción para aparecer destacado:")
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = periodoDestacar == "1 semana", onClick = { periodoDestacar = "1 semana" })
-                        Text("1 Semana ($150.00 MXN)")
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = periodoDestacar == "1 mes", onClick = { periodoDestacar = "1 mes" })
-                        Text("1 Mes ($450.00 MXN)")
-                    }
+                ) {
+                    Text("Confirmar pago")
                 }
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val costo = if (periodoDestacar == "1 semana") 150.0 else 450.0
-                        scope.launch {
-                            val resultado = GestorEventosOrganizador.destacarEvento(evento.id, periodoDestacar, costo)
-                            if (resultado.isSuccess) {
-                                Toast.makeText(context, "El evento ahora se encuentra destacado", Toast.LENGTH_LONG).show()
-                                listaEventosPropios = listaEventosPropios.map {
-                                    if (it.id == evento.id) it.copy(esDestacado = true, estado = "destacado") else it
-                                }
-                                eventoADestacar = null
-                            }
-                        }
-                    }
-                ) { Text("Pagar Promoción") }
-            },
             dismissButton = {
-                TextButton(onClick = { eventoADestacar = null }) { Text("Volver") }
-            }
-        )
-    }
-
-    // MODAL CU-18: Visor de métricas cuantitativas
-    eventoParaMetricas?.let { evento ->
-        AlertDialog(
-            onDismissRequest = { eventoParaMetricas = null },
-            title = { Text("Métricas e Interacciones") },
-            text = {
-                if (evento.vistas == 0 && evento.clicks == 0 && evento.guardados == 0) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        Text("Aún no hay interacciones", fontWeight = FontWeight.Medium, color = Color.Gray)
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text("Rendimiento acumulado de la publicación:", fontSize = 13.sp, color = Color.Gray)
-
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Visualizaciones:", fontWeight = FontWeight.SemiBold)
-                                Text("${evento.vistas}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Clics en el detalle:", fontWeight = FontWeight.SemiBold)
-                                Text("${evento.clicks}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Veces guardado:", fontWeight = FontWeight.SemiBold)
-                                Text("${evento.guardados}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
+                TextButton(onClick = { mostrarModalSuscripcion = false }) {
+                    Text("Cancelar")
                 }
-            },
-            confirmButton = {
-                Button(onClick = { eventoParaMetricas = null }) { Text("Cerrar") }
             }
         )
     }

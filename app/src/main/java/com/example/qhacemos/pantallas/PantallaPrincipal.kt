@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -958,6 +959,16 @@ fun BarraNavegacionInferior(
             selected = rutaActual == AppScreens.Account.route,
             onClick = {
                 navController.navigate(AppScreens.Account.route) {
+                    launchSingleTop = true
+                }
+            }
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Explore, contentDescription = "Brujula") },
+            label = { Text("Brujula") },
+            selected = rutaActual == AppScreens.Compass.route,
+            onClick = {
+                navController.navigate(AppScreens.Compass.route) {
                     launchSingleTop = true
                 }
             }
