@@ -27,10 +27,15 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,9 +60,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.qhacemos.datos.GestorAsistencias
+import com.example.qhacemos.datos.GestorAutenticacion
+import com.example.qhacemos.datos.GestorReportes
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
 import com.example.qhacemos.modelo.Evento
+import com.example.qhacemos.modelo.PerfilUsuario
 import com.example.qhacemos.navigation.AppScreens
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -77,6 +85,18 @@ fun EventDetailScreen(
     var guardandoAsistencia by remember { mutableStateOf(false) }
     var intentoCarga by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    var perfilActual by remember { mutableStateOf<PerfilUsuario?>(null) }
+    var mostrarDialogoReporte by remember { mutableStateOf(false) }
+    var motivoReporte by remember { mutableStateOf("") }
+    var enviandoReporte by remember { mutableStateOf(false) }
+    var conteoReportes by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+
+    LaunchedEffect(eventoId) {
+        perfilActual = GestorAutenticacion.cargarPerfilActual().getOrNull()
+        if (perfilActual?.esAdmin == true) {
+            conteoReportes = GestorReportes.obtenerConteoReportes(eventoId).getOrDefault(emptyMap())
+        }
+    }
 
     LaunchedEffect(eventoId, context, intentoCarga) {
         cargandoEvento = true
@@ -273,6 +293,55 @@ fun EventDetailScreen(
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = Color.LightGray)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "¿Notas algo mal? Reportar evento",
+                    color = Color.Red,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { mostrarDialogoReporte = true }
+                        .padding(vertical = 8.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                )
+
+                if (perfilActual?.esAdmin == true) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Panel de Administrador - Reportes", fontWeight = FontWeight.Bold, color = Color.Red)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (conteoReportes.isEmpty()) {
+                                Text("No hay reportes para este evento.", fontSize = 14.sp, color = Color.DarkGray)
+                            } else {
+                                conteoReportes.forEach { (motivo, cantidad) ->
+                                    Text("- $motivo: $cantidad", fontSize = 14.sp, color = Color.DarkGray)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = { /* TODO: Lógica para eliminar el evento */ },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Red,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("ELIMINAR EVENTO", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -281,6 +350,77 @@ fun EventDetailScreen(
         DialogoCompartirEvento(
             evento = eventoActual,
             onDismiss = { mostrarDialogoCompartir = false }
+        )
+    }
+
+    if (mostrarDialogoReporte) {
+        val opciones = listOf("Información incorrecta", "Fraude", "Cancelación", "Contenido inapropiado")
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!enviandoReporte) mostrarDialogoReporte = false
+            },
+            title = { Text("Reportar Evento") },
+            text = {
+                Column {
+                    Text("Selecciona el motivo del reporte:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    opciones.forEach { opcion ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { motivoReporte = opcion }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = motivoReporte == opcion,
+                                onClick = { motivoReporte = opcion },
+                                colors = RadioButtonDefaults.colors(selectedColor = Color.Red)
+                            )
+                            Text(text = opcion, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            enviandoReporte = true
+                            GestorReportes.enviarReporte(
+                                eventoId = eventoId,
+                                usuarioId = perfilActual?.id ?: "usuario_anonimo",
+                                motivo = motivoReporte
+                            )
+                            enviandoReporte = false
+                            mostrarDialogoReporte = false
+                            motivoReporte = ""
+                            Toast.makeText(context, "Reporte enviado exitosamente", Toast.LENGTH_SHORT).show()
+
+                            if (perfilActual?.esAdmin == true) {
+                                conteoReportes = GestorReportes.obtenerConteoReportes(eventoId).getOrDefault(emptyMap())
+                            }
+                        }
+                    },
+                    enabled = motivoReporte.isNotEmpty() && !enviandoReporte,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    if (enviandoReporte) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text("Enviar Reporte")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { mostrarDialogoReporte = false },
+                    enabled = !enviandoReporte
+                ) {
+                    Text("Cancelar", color = Color.Gray)
+                }
+            }
         )
     }
 }
