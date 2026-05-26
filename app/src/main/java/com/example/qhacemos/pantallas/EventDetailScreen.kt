@@ -241,42 +241,58 @@ fun EventDetailScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    val puedeMarcarAsistencia = !eventoActual.yaOcurrio && !asistiraEvento && !guardandoAsistencia
+                    val puedeInteractuarAsistencia = !eventoActual.yaOcurrio && !guardandoAsistencia
 
                     Button(
                         onClick = {
                             scope.launch {
                                 guardandoAsistencia = true
-                                val resultado = GestorAsistencias.registrarAsistencia(eventoActual)
-                                resultado
-                                    .onSuccess {
-                                        asistiraEvento = true
-                                        Toast
-                                            .makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT)
-                                            .show()
-                                    }
-                                    .onFailure { error ->
-                                        Toast
-                                            .makeText(
+                                if (asistiraEvento) {
+                                    // FLUJO: El usuario ya asistía, ahora quiere cancelar
+                                    GestorAsistencias.eliminarAsistencia(eventoActual.id)
+                                        .onSuccess {
+                                            asistiraEvento = false
+                                            Toast.makeText(context, "Asistencia cancelada", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .onFailure { error ->
+                                            Toast.makeText(
+                                                context,
+                                                error.message ?: "No se pudo cancelar tu asistencia",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                } else {
+                                    // FLUJO: El usuario no asistía, ahora quiere registrarse
+                                    val resultado = GestorAsistencias.registrarAsistencia(eventoActual)
+                                    resultado
+                                        .onSuccess {
+                                            asistiraEvento = true
+                                            Toast.makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .onFailure { error ->
+                                            Toast.makeText(
                                                 context,
                                                 error.message ?: "No se pudo registrar tu asistencia",
                                                 Toast.LENGTH_SHORT
-                                            )
-                                            .show()
-                                    }
+                                            ).show()
+                                        }
+                                }
                                 guardandoAsistencia = false
                             }
                         },
-                        enabled = puedeMarcarAsistencia,
+                        enabled = puedeInteractuarAsistencia,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A1A))
+                        // Cambia el color a Gris si ya está marcado, para dar un aspecto visual de "desactivación" o cancelación accesible
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (asistiraEvento) Color.Gray else Color(0xFFFF7A1A)
+                        )
                     ) {
                         Text(
                             when {
                                 eventoActual.yaOcurrio -> "Evento pasado"
-                                asistiraEvento -> "Ya marcado"
-                                guardandoAsistencia -> "Guardando"
-                                else -> "Asistire"
+                                guardandoAsistencia -> "Procesando"
+                                asistiraEvento -> "Quitar asistencia"
+                                else -> "Asistiré"
                             }
                         )
                     }

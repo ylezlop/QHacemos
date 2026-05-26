@@ -189,4 +189,23 @@ object GestorAsistencias {
                 .insert(nuevaCalificacion)
         }
     }
+
+    suspend fun eliminarAsistencia(eventoId: Long): Result<Unit> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val perfil = GestorAutenticacion.cargarPerfilActual().getOrNull()
+            ?: return@withContext Result.failure(IllegalStateException("Usuario no autenticado"))
+
+        if (!SupabaseCliente.estaConfigurado) {
+            return@withContext Result.success(Unit)
+        }
+
+        runCatching {
+            SupabaseCliente.cliente.from(TABLA_ASISTENCIAS).delete {
+                filter {
+                    eq("evento_id", eventoId)
+                    eq("usuario_id", perfil.id)
+                }
+            }
+            Unit
+        }
+    }
 }
