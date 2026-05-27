@@ -2,6 +2,8 @@ package com.example.qhacemos.datos
 
 import com.example.qhacemos.modelo.Evento
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -190,12 +192,20 @@ object GestorAsistencias {
         }
     }
 
-    suspend fun eliminarAsistencia(eventoId: Long): Result<Unit> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    suspend fun eliminarAsistencia(eventoId: Long): Result<Unit> = withContext(Dispatchers.IO) {
         val perfil = GestorAutenticacion.cargarPerfilActual().getOrNull()
             ?: return@withContext Result.failure(IllegalStateException("Usuario no autenticado"))
 
         if (!SupabaseCliente.estaConfigurado) {
-            return@withContext Result.success(Unit)
+            val remocionExitosa = asistenciasDemo.removeIf { it.eventoId == eventoId && it.usuarioId == perfil.id }
+
+            println("MODO DEMO: Intentando remover evento $eventoId para el usuario '${perfil.id}'. ¿Éxito?: $remocionExitosa")
+
+            return@withContext if (remocionExitosa) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("No se encontró un registro de asistencia local con ID coincidente"))
+            }
         }
 
         runCatching {

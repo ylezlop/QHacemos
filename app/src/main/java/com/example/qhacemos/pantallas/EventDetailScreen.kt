@@ -67,8 +67,10 @@ import com.example.qhacemos.datos.cargarEventos
 import com.example.qhacemos.modelo.Evento
 import com.example.qhacemos.modelo.PerfilUsuario
 import com.example.qhacemos.navigation.AppScreens
+import com.example.qhacemos.notificaciones.GestorRecordatorios
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.example.qhacemos.notificaciones.NotificadorEventos
 
 @Composable
 fun EventDetailScreen(
@@ -241,18 +243,18 @@ fun EventDetailScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    val puedeInteractuarAsistencia = !eventoActual.yaOcurrio && !guardandoAsistencia
+                   val puedeInteractuarAsistencia = !eventoActual.yaOcurrio && !guardandoAsistencia
 
                     Button(
                         onClick = {
                             scope.launch {
                                 guardandoAsistencia = true
                                 if (asistiraEvento) {
-                                    // FLUJO: El usuario ya asistía, ahora quiere cancelar
                                     GestorAsistencias.eliminarAsistencia(eventoActual.id)
                                         .onSuccess {
                                             asistiraEvento = false
-                                            Toast.makeText(context, "Asistencia cancelada", Toast.LENGTH_SHORT).show()
+                                            GestorRecordatorios.cancelarRecordatorio(context, eventoActual.id)
+                                            Toast.makeText(context, "Asistencia cancelada exitosamente", Toast.LENGTH_SHORT).show()
                                         }
                                         .onFailure { error ->
                                             Toast.makeText(
@@ -262,11 +264,11 @@ fun EventDetailScreen(
                                             ).show()
                                         }
                                 } else {
-                                    // FLUJO: El usuario no asistía, ahora quiere registrarse
                                     val resultado = GestorAsistencias.registrarAsistencia(eventoActual)
                                     resultado
                                         .onSuccess {
                                             asistiraEvento = true
+                                            GestorRecordatorios.programarRecordatorio(context, eventoActual)
                                             Toast.makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT).show()
                                         }
                                         .onFailure { error ->
@@ -282,7 +284,6 @@ fun EventDetailScreen(
                         },
                         enabled = puedeInteractuarAsistencia,
                         modifier = Modifier.weight(1f),
-                        // Cambia el color a Gris si ya está marcado, para dar un aspecto visual de "desactivación" o cancelación accesible
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (asistiraEvento) Color.Gray else Color(0xFFFF7A1A)
                         )
@@ -290,8 +291,8 @@ fun EventDetailScreen(
                         Text(
                             when {
                                 eventoActual.yaOcurrio -> "Evento pasado"
-                                guardandoAsistencia -> "Procesando"
-                                asistiraEvento -> "Quitar asistencia"
+                                guardandoAsistencia -> "Procesando..."
+                                asistiraEvento -> "¡Asistiré! ✓" // Texto indicativo de que está seleccionado
                                 else -> "Asistiré"
                             }
                         )
@@ -325,6 +326,22 @@ fun EventDetailScreen(
                 )
 
                 if (perfilActual?.esAdmin == true) {
+
+                    Button(
+                        onClick = {
+                            val notificador = NotificadorEventos(context)
+                            notificador.mostrarNotificacionBasica(
+                                titulo = "Prueba de notificación",
+                                mensaje = "Click para abrir: ${eventoActual.titulo}",
+                                eventoId = eventoActual.id // Pasamos el ID del evento actual
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                    ) {
+                        Text("Probar Notificación de este evento")
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
