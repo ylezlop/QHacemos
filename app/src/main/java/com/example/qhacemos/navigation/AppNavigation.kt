@@ -116,6 +116,10 @@ fun AppNavigation() {
             BrujulaEventosScreen(navController = navController)
         }
 
+        composable(AppScreens.Mapa.route) {
+            MapaEventosScreen(navController = navController)
+        }
+
         composable(
             route = "${AppScreens.EventDetail.route}/{eventoId}",
             deepLinks = listOf(navDeepLink { uriPattern = "qhacemos://evento/{eventoId}" })

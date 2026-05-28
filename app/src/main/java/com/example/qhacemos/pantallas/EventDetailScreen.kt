@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.qhacemos.datos.GestorAsistencias
 import com.example.qhacemos.datos.GestorAutenticacion
+import com.example.qhacemos.datos.GestorEventosOrganizador
 import com.example.qhacemos.datos.GestorReportes
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
@@ -92,6 +93,7 @@ fun EventDetailScreen(
     var motivoReporte by remember { mutableStateOf("") }
     var enviandoReporte by remember { mutableStateOf(false) }
     var conteoReportes by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var mostrarConfirmacionEliminar by remember { mutableStateOf(false) }
 
     LaunchedEffect(eventoId) {
         perfilActual = GestorAutenticacion.cargarPerfilActual().getOrNull()
@@ -362,7 +364,7 @@ fun EventDetailScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Button(
-                                onClick = { /* TODO: Lógica para eliminar el evento */ },
+                                onClick = { mostrarConfirmacionEliminar = true },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color.Red,
                                     contentColor = Color.White
@@ -456,6 +458,48 @@ fun EventDetailScreen(
             }
         )
     }
+
+    if (mostrarConfirmacionEliminar) {
+        AlertDialog(
+            onDismissRequest = { mostrarConfirmacionEliminar = false },
+            title = { Text("¿Eliminar evento?") },
+            text = { Text("Esta acción ocultará permanentemente el evento para los usuarios de la plataforma.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            GestorEventosOrganizador.eliminarEvento(eventoActual.id)
+                                .onSuccess { exito ->
+                                    if (exito) {
+                                        Toast.makeText(context, "Evento eliminado con éxito", Toast.LENGTH_SHORT).show()
+                                        mostrarConfirmacionEliminar = false
+                                        // Limpiamos la pila y regresamos al Home para no quedarnos en una pantalla fantasma
+                                        navController.navigate(AppScreens.Home.route) {
+                                            popUpTo(AppScreens.Home.route) { inclusive = true }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "No se pudo eliminar el evento", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .onFailure { error ->
+                                    Toast.makeText(context, error.message ?: "Error de red al intentar eliminar", Toast.LENGTH_SHORT).show()
+                                    mostrarConfirmacionEliminar = false
+                                }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarConfirmacionEliminar = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
 }
 
 @Composable

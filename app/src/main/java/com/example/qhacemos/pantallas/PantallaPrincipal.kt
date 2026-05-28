@@ -965,14 +965,15 @@ fun BarraNavegacionInferior(
         )
         NavigationBarItem(
             icon = {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = "Mapa"
-                )
+                Icon(Icons.Default.LocationOn, contentDescription = "Mapa")
             },
             label = { Text("Mapa") },
-            selected = false,
-            onClick = { }
+            selected = rutaActual == AppScreens.Mapa.route,
+            onClick = {
+                navController.navigate(AppScreens.Mapa.route) {
+                    launchSingleTop = true
+                }
+            }
         )
         NavigationBarItem(
             icon = {

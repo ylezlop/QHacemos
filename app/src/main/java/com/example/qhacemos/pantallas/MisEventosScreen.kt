@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -172,15 +173,9 @@ fun MisEventosScreen(
             eventos.forEach { evento ->
                 TarjetaEventoPropio(
                     evento = evento,
-                    onEditar = {
-                        navController.navigate("${AppScreens.EditarEvento.route}/${evento.id}")
-                    },
-                    onEliminar = {
-                        eventoAEliminar = evento
-                    },
-                    onVer = {
-                        navController.navigate("${AppScreens.EventDetail.route}/${evento.id}")
-                    }
+                    onVer = { navController.navigate("${AppScreens.EventDetail.route}/${evento.id}") },
+                    onEditar = { navController.navigate("${AppScreens.EditarEvento.route}/${evento.id}") },
+                    onEliminar = { eventoAEliminar = evento } // Guardamos el evento que se desea ocultar
                 )
             }
 
@@ -190,46 +185,36 @@ fun MisEventosScreen(
 
     eventoAEliminar?.let { evento ->
         AlertDialog(
-            onDismissRequest = { if (!eliminando) eventoAEliminar = null },
-            title = { Text("Eliminar evento") },
-            text = {
-                Text("El evento dejara de aparecer para los usuarios. Esta accion no elimina asistencias ni calificaciones relacionadas.")
-            },
+            onDismissRequest = { eventoAEliminar = null },
+            title = { Text("¿Eliminar publicación?") },
+            text = { Text("¿Estás seguro de que deseas eliminar '${evento.titulo}'? La publicación pasará a estado inactivo y ya no será visible.") },
             confirmButton = {
                 Button(
-                    enabled = !eliminando,
                     onClick = {
                         scope.launch {
-                            eliminando = true
                             GestorEventosOrganizador.eliminarEvento(evento.id)
-                                .onSuccess {
-                                    eventos = eventos.filterNot { it.id == evento.id }
-                                    Toast.makeText(context, "Evento eliminado", Toast.LENGTH_LONG).show()
-                                    eventoAEliminar = null
+                                .onSuccess { exito ->
+                                    if (exito) {
+                                        Toast.makeText(context, "Publicación eliminada correctamente", Toast.LENGTH_SHORT).show()
+                                        eventoAEliminar = null
+                                        intentoCarga++ // Dispara el LaunchedEffect para refrescar la lista visualmente
+                                    } else {
+                                        Toast.makeText(context, "No se pudo completar la acción", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                                 .onFailure { error ->
-                                    Toast.makeText(
-                                        context,
-                                        error.message ?: "No se pudo eliminar el evento",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    Toast.makeText(context, error.message ?: "Fallo de conexión", Toast.LENGTH_SHORT).show()
+                                    eventoAEliminar = null
                                 }
-                            eliminando = false
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
-                    if (eliminando) {
-                        CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Eliminar")
-                    }
+                    Text("Confirmar eliminación")
                 }
             },
             dismissButton = {
-                TextButton(
-                    enabled = !eliminando,
-                    onClick = { eventoAEliminar = null }
-                ) {
+                TextButton(onClick = { eventoAEliminar = null }) {
                     Text("Cancelar")
                 }
             }

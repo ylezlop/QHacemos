@@ -10,4 +10,6 @@ sealed class AppScreens(val route: String) {
     object CrearEvento : AppScreens("crear_evento")
     object EditarEvento : AppScreens("editar_evento")
     object MisEventos : AppScreens("mis_eventos")
+
+    object Mapa : AppScreens("mapa")
 }

@@ -59,6 +59,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberMarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -339,7 +340,7 @@ fun CrearEventoScreen(
                 ) {
                     coordenadasSeleccionadas?.let { posicion ->
                         Marker(
-                            state = MarkerState(position = posicion),
+                            state = rememberMarkerState(position = posicion),
                             title = titulo.ifBlank { "Evento" }
                         )
                     }
