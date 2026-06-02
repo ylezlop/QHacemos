@@ -154,5 +154,17 @@ fun AppNavigation() {
                 perfilActual = perfilActual
             )
         }
+
+        composable(AppScreens.MetricasSistema.route) {
+            MetricasSistemaScreen(navController = navController)
+        }
+
+        composable(AppScreens.ValidarEventos.route) {
+            ValidarEventosScreen(navController = navController)
+        }
+
+        composable(AppScreens.GestionUsuarios.route) {
+            GestionUsuariosScreen(navController = navController)
+        }
     }
 }

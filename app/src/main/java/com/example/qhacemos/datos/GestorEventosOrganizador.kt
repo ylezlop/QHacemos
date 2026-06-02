@@ -119,17 +119,36 @@ object GestorEventosOrganizador {
         runCatching {
             if (!SupabaseCliente.estaConfigurado) {
                 val index = eventosDemo.indexOfFirst { it.id == eventoId }
-                if (index != -1) eventosDemo[index] = eventosDemo[index].copy(esDestacado = true, estado = "destacado")
+                if (index == -1) return@runCatching false
+                val evento = eventosDemo[index]
+                eventosDemo[index] = evento.copy(esDestacado = true, tipoPublicacion = "destacada")
                 return@runCatching true
             }
             SupabaseCliente.cliente.from("eventos").update({
                 set("es_destacado", true)
-                set("estado", "destacado")
+                set("tipo_publicacion", "destacada")
             }) {
                 filter { eq("id", eventoId) }
             }
             true
         }
+    }
+
+    fun actualizarMetricasDemo(
+        eventoId: Long,
+        vistas: Int? = null,
+        clicks: Int? = null,
+        guardados: Int? = null
+    ) {
+        val index = eventosDemo.indexOfFirst { it.id == eventoId }
+        if (index == -1) return
+
+        val evento = eventosDemo[index]
+        eventosDemo[index] = evento.copy(
+            vistas = vistas ?: evento.vistas,
+            clicks = clicks ?: evento.clicks,
+            guardados = guardados ?: evento.guardados
+        )
     }
 
     suspend fun obtenerEventosPorOrganizador(organizadorId: String): Result<List<Evento>> = withContext(Dispatchers.IO) {
@@ -143,6 +162,56 @@ object GestorEventosOrganizador {
                 .select { filter { eq("organizador_id", organizadorId) } }
                 .decodeList<Evento>()
                 .filter { !it.estado.equals("eliminado", ignoreCase = true) }
+        }
+    }
+
+    suspend fun obtenerEventosPendientes(): Result<List<Evento>> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!SupabaseCliente.estaConfigurado) {
+                return@runCatching eventosDemo.filter {
+                    it.estado.equals("pendiente_validacion", ignoreCase = true)
+                }
+            }
+
+            SupabaseCliente.cliente.from("eventos")
+                .select {
+                    filter { eq("estado", "pendiente_validacion") }
+                }
+                .decodeList<Evento>()
+        }
+    }
+
+    suspend fun aprobarEvento(eventoId: Long): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!SupabaseCliente.estaConfigurado) {
+                val index = eventosDemo.indexOfFirst { it.id == eventoId }
+                if (index != -1) eventosDemo[index] = eventosDemo[index].copy(estado = "publicado")
+                return@runCatching index != -1
+            }
+
+            SupabaseCliente.cliente.from("eventos").update({
+                set("estado", "publicado")
+            }) {
+                filter { eq("id", eventoId) }
+            }
+            true
+        }
+    }
+
+    suspend fun rechazarEvento(eventoId: Long): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!SupabaseCliente.estaConfigurado) {
+                val index = eventosDemo.indexOfFirst { it.id == eventoId }
+                if (index != -1) eventosDemo[index] = eventosDemo[index].copy(estado = "rechazado")
+                return@runCatching index != -1
+            }
+
+            SupabaseCliente.cliente.from("eventos").update({
+                set("estado", "rechazado")
+            }) {
+                filter { eq("id", eventoId) }
+            }
+            true
         }
     }
 

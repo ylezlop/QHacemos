@@ -10,6 +10,8 @@ object GestorSuscripciones {
     // Variables en memoria para controlar el estado en Modo Demo Offline
     private var suscripcionActivaDemo = false
 
+    fun suscripcionDemoActiva(): Boolean = suscripcionActivaDemo
+
     suspend fun verificarSuscripcionActiva(usuarioId: String): Result<Boolean> = withContext(Dispatchers.IO) {
         runCatching {
             if (!SupabaseCliente.estaConfigurado) return@runCatching suscripcionActivaDemo

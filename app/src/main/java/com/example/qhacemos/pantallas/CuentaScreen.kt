@@ -72,6 +72,7 @@ fun CuentaScreen(
 
     var esSuscrito by remember { mutableStateOf(false) }
     var mostrarModalSuscripcion by remember { mutableStateOf(false) }
+    var procesandoSuscripcion by remember { mutableStateOf(false) }
 
     LaunchedEffect(perfil.id, intentoEventosUsuario) {
         if (perfil.esAdmin) {
@@ -169,6 +170,29 @@ fun CuentaScreen(
                 }
             }
 
+            if (perfil.esAdmin) {
+                Button(
+                    onClick = { navController.navigate(AppScreens.ValidarEventos.route) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Validar eventos")
+                }
+
+                Button(
+                    onClick = { navController.navigate(AppScreens.MetricasSistema.route) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Metricas del sistema")
+                }
+
+                Button(
+                    onClick = { navController.navigate(AppScreens.GestionUsuarios.route) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Gestionar usuarios")
+                }
+            }
+
             if (!perfil.esAdmin) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -212,6 +236,13 @@ fun CuentaScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Mis eventos")
+                }
+
+                Button(
+                    onClick = { navController.navigate(AppScreens.MisEventos.route) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Destacar un evento")
                 }
 
                 SeccionEventosUsuario(
@@ -285,18 +316,33 @@ fun CuentaScreen(
             },
             confirmButton = {
                 Button(
+                    enabled = !procesandoSuscripcion,
                     onClick = {
                         scope.launch {
+                            procesandoSuscripcion = true
                             val resultado = GestorSuscripciones.contratarSuscripcionMensual(perfil.id, 299.0)
-                            if (resultado.isSuccess) {
-                                esSuscrito = true
-                                mostrarModalSuscripcion = false
-                                Toast.makeText(context, "Suscripcion activa.", Toast.LENGTH_LONG).show()
-                            }
+                            resultado
+                                .onSuccess {
+                                    esSuscrito = true
+                                    mostrarModalSuscripcion = false
+                                    Toast.makeText(context, "Suscripcion activa.", Toast.LENGTH_LONG).show()
+                                }
+                                .onFailure { error ->
+                                    Toast.makeText(
+                                        context,
+                                        error.message ?: "No se pudo procesar la suscripcion",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            procesandoSuscripcion = false
                         }
                     }
                 ) {
-                    Text("Confirmar pago")
+                    if (procesandoSuscripcion) {
+                        CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Confirmar pago")
+                    }
                 }
             },
             dismissButton = {

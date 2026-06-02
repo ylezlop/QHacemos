@@ -62,6 +62,7 @@ import androidx.navigation.NavController
 import com.example.qhacemos.datos.GestorAsistencias
 import com.example.qhacemos.datos.GestorAutenticacion
 import com.example.qhacemos.datos.GestorEventosOrganizador
+import com.example.qhacemos.datos.GestorMetricas
 import com.example.qhacemos.datos.GestorReportes
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
@@ -87,6 +88,7 @@ fun EventDetailScreen(
     var asistiraEvento by remember { mutableStateOf(false) }
     var guardandoAsistencia by remember { mutableStateOf(false) }
     var intentoCarga by remember { mutableStateOf(0) }
+    var vistaRegistrada by remember(eventoId) { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     var perfilActual by remember { mutableStateOf<PerfilUsuario?>(null) }
     var mostrarDialogoReporte by remember { mutableStateOf(false) }
@@ -114,6 +116,14 @@ fun EventDetailScreen(
             is ResultadoEventos.Error -> {
                 mensajeError = resultado.mensaje
                 evento = resultado.eventosLocales.find { it.id == eventoId }
+            }
+        }
+
+        evento?.let { eventoEncontrado ->
+            if (!vistaRegistrada && eventoEncontrado.esVisibleParaUsuarios()) {
+                GestorMetricas.registrarVista(eventoEncontrado)
+                evento = eventoEncontrado.copy(vistas = eventoEncontrado.vistas + 1)
+                vistaRegistrada = true
             }
         }
 
@@ -271,6 +281,8 @@ fun EventDetailScreen(
                                         .onSuccess {
                                             asistiraEvento = true
                                             GestorRecordatorios.programarRecordatorio(context, eventoActual)
+                                            GestorMetricas.registrarGuardado(eventoActual)
+                                            evento = eventoActual.copy(guardados = eventoActual.guardados + 1)
                                             Toast.makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT).show()
                                         }
                                         .onFailure { error ->
@@ -303,7 +315,13 @@ fun EventDetailScreen(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Button(
-                        onClick = { mostrarDialogoCompartir = true },
+                        onClick = {
+                            scope.launch {
+                                GestorMetricas.registrarClick(eventoActual)
+                                evento = eventoActual.copy(clicks = eventoActual.clicks + 1)
+                            }
+                            mostrarDialogoCompartir = true
+                        },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81D4FA))
                     ) {

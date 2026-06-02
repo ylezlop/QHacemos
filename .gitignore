@@ -3,3 +3,4 @@
 .gradle-user-2/
 build/
 *.zip
+local.properties

@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -72,6 +73,8 @@ fun MisEventosScreen(
     var intentoCarga by remember { mutableStateOf(0) }
     var eventoAEliminar by remember { mutableStateOf<Evento?>(null) }
     var eliminando by remember { mutableStateOf(false) }
+    var eventoADestacar by remember { mutableStateOf<Evento?>(null) }
+    var destacando by remember { mutableStateOf(false) }
 
     LaunchedEffect(perfilActual?.id, intentoCarga) {
         val perfil = perfilActual
@@ -173,9 +176,18 @@ fun MisEventosScreen(
             eventos.forEach { evento ->
                 TarjetaEventoPropio(
                     evento = evento,
-                    onVer = { navController.navigate("${AppScreens.EventDetail.route}/${evento.id}") },
-                    onEditar = { navController.navigate("${AppScreens.EditarEvento.route}/${evento.id}") },
-                    onEliminar = { eventoAEliminar = evento } // Guardamos el evento que se desea ocultar
+                    onEditar = {
+                        navController.navigate("${AppScreens.EditarEvento.route}/${evento.id}")
+                    },
+                    onEliminar = {
+                        eventoAEliminar = evento
+                    },
+                    onDestacar = {
+                        eventoADestacar = evento
+                    },
+                    onVer = {
+                        navController.navigate("${AppScreens.EventDetail.route}/${evento.id}")
+                    }
                 )
             }
 
@@ -220,6 +232,66 @@ fun MisEventosScreen(
             }
         )
     }
+
+    eventoADestacar?.let { evento ->
+        AlertDialog(
+            onDismissRequest = { if (!destacando) eventoADestacar = null },
+            title = { Text("Destacar evento") },
+            text = {
+                Text(
+                    if (evento.estado.equals("publicado", ignoreCase = true)) {
+                        "Se simulara el pago de destaque semanal y el evento aparecera en la seccion de destacados."
+                    } else {
+                        "Se simulara el pago de destaque semanal. El evento quedara marcado como destacado y aparecera cuando este publicado."
+                    }
+                )
+            },
+            confirmButton = {
+                Button(
+                    enabled = !destacando,
+                    onClick = {
+                        scope.launch {
+                            destacando = true
+                            GestorEventosOrganizador.destacarEvento(evento.id, "semanal", 99.0)
+                                .onSuccess { actualizado ->
+                                    if (actualizado) {
+                                        eventos = eventos.map {
+                                            if (it.id == evento.id) it.copy(esDestacado = true, tipoPublicacion = "destacada") else it
+                                        }
+                                        Toast.makeText(context, "Evento destacado", Toast.LENGTH_LONG).show()
+                                        eventoADestacar = null
+                                    } else {
+                                        Toast.makeText(context, "No se encontro el evento", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                .onFailure { error ->
+                                    Toast.makeText(
+                                        context,
+                                        error.message ?: "No se pudo destacar el evento",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            destacando = false
+                        }
+                    }
+                ) {
+                    if (destacando) {
+                        CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Pagar y destacar")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !destacando,
+                    onClick = { eventoADestacar = null }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -227,6 +299,7 @@ private fun TarjetaEventoPropio(
     evento: Evento,
     onEditar: () -> Unit,
     onEliminar: () -> Unit,
+    onDestacar: () -> Unit,
     onVer: () -> Unit
 ) {
     Card(
@@ -260,6 +333,15 @@ private fun TarjetaEventoPropio(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                DatoEstadistica("Vistas", evento.vistas.toString(), Modifier.weight(1f))
+                DatoEstadistica("Clicks", evento.clicks.toString(), Modifier.weight(1f))
+                DatoEstadistica("Guardados", evento.guardados.toString(), Modifier.weight(1f))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(onClick = onVer, modifier = Modifier.weight(1f)) {
                     Text("Ver")
                 }
@@ -270,6 +352,35 @@ private fun TarjetaEventoPropio(
                     Text("Eliminar")
                 }
             }
+
+            if (!evento.esDestacado && !evento.estado.equals("eliminado", ignoreCase = true)) {
+                Button(onClick = onDestacar, modifier = Modifier.fillMaxWidth()) {
+                    Text("Destacar")
+                }
+            } else if (evento.esDestacado) {
+                Text("Destacado activo", color = Color(0xFF1B5E20), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DatoEstadistica(
+    etiqueta: String,
+    valor: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF4F7FB)
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(valor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(etiqueta, color = Color.Gray, fontSize = 11.sp)
         }
     }
 }

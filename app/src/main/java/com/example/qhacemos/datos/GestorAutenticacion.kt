@@ -9,20 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 
 private const val TABLA_PERFILES = "perfiles"
 
-private val demoAdmin = PerfilUsuario(
-    id = "demo-admin",
-    nombre = "Admin Demo",
-    email = "admin@qhacemos.test",
-    rol = "admin"
-)
-
-private val demoUsuario = PerfilUsuario(
-    id = "demo-usuario",
-    nombre = "Usuario Demo",
-    email = "usuario@qhacemos.test",
-    rol = "usuario"
-)
-
 object GestorAutenticacion {
 
     private var sesionDemo: PerfilUsuario? = null
@@ -43,12 +29,15 @@ object GestorAutenticacion {
         val correo = email.trim()
 
         if (!SupabaseCliente.estaConfigurado) {
-            val demo = validarUsuarioDemo(correo, password)
+            val demo = GestorUsuarios.validarUsuarioDemo(correo, password)
                 ?: return Result.failure(
                     IllegalArgumentException(
                         "Modo demo: usa admin@qhacemos.test o usuario@qhacemos.test"
                     )
                 )
+            if (demo.estaSuspendido) {
+                return Result.failure(IllegalStateException("Tu cuenta esta suspendida. Contacta a un administrador."))
+            }
             sesionDemo = demo
             return Result.success(demo)
         }
@@ -59,8 +48,13 @@ object GestorAutenticacion {
                 this.password = password
             }
 
-            cargarPerfilActual().getOrThrow()
+            val perfil = cargarPerfilActual().getOrThrow()
                 ?: throw IllegalStateException("La sesion se creo, pero no se encontro el perfil.")
+            if (perfil.estaSuspendido) {
+                SupabaseCliente.cliente.auth.signOut()
+                throw IllegalStateException("Tu cuenta esta suspendida. Contacta a un administrador.")
+            }
+            perfil
         }
     }
 
@@ -100,18 +94,4 @@ object GestorAutenticacion {
         }
     }
 
-    private fun validarUsuarioDemo(
-        email: String,
-        password: String
-    ): PerfilUsuario? {
-        return when {
-            email.equals("admin@qhacemos.test", ignoreCase = true) &&
-                password == "Admin1234" -> demoAdmin
-
-            email.equals("usuario@qhacemos.test", ignoreCase = true) &&
-                password == "Usuario1234" -> demoUsuario
-
-            else -> null
-        }
-    }
 }
