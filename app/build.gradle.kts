@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.ktor.client.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.material3)
+    implementation(libs.coil.compose)
     implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation(libs.androidx.ui)

@@ -1,28 +1,33 @@
 package com.example.qhacemos.pantallas
 
 import android.content.Context
+import android.content.Intent
 import android.location.Geocoder
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -33,9 +38,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,8 +50,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.qhacemos.datos.GestorEventosOrganizador
@@ -141,8 +151,16 @@ fun CrearEventoScreen(
     }
 
     val selectorImagenes = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
+        contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            runCatching {
+                contexto.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+        }
         imagenesSeleccionadas = uris.map { it.toString() }
     }
 
@@ -205,6 +223,11 @@ fun CrearEventoScreen(
         topBar = {
             TopAppBar(
                 title = { Text(if (esEdicion) "Editar evento" else "Crear evento") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFF4F7FB),
+                    titleContentColor = Color(0xFF0F172A),
+                    navigationIconContentColor = Color(0xFF0F172A)
+                ),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
@@ -215,10 +238,12 @@ fun CrearEventoScreen(
     ) { paddingValues ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF4F7FB))
                 .padding(paddingValues)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (cargandoEvento) {
                 CircularProgressIndicator(modifier = Modifier.size(28.dp))
@@ -232,6 +257,23 @@ fun CrearEventoScreen(
                 }
                 return@Column
             }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                tonalElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = if (esEdicion) "Actualiza los datos del evento" else "Datos del nuevo evento",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF0F172A)
+                    )
 
             OutlinedTextField(
                 value = titulo,
@@ -398,7 +440,7 @@ fun CrearEventoScreen(
             )
 
             OutlinedButton(
-                onClick = { selectorImagenes.launch("image/*") },
+                onClick = { selectorImagenes.launch(arrayOf("image/*")) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -409,18 +451,34 @@ fun CrearEventoScreen(
                     }
                 )
             }
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = if (esSuscriptor) {
-                    "Publicacion incluida en tu suscripcion mensual."
-                } else {
-                    "Publicacion individual: $50.00 MXN."
-                },
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                tonalElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (esSuscriptor) "Incluido en Premium" else "Publicacion individual",
+                        color = Color(0xFF64748B),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = if (esSuscriptor) "$0.00 MXN" else "$50.00 MXN",
+                        color = Color(0xFF0284C7),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
             Button(
                 onClick = {
@@ -442,7 +500,8 @@ fun CrearEventoScreen(
                         mostrandoConfirmacion = true
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4))
             ) {
                 Text(if (esEdicion) "Guardar cambios" else "Publicar evento")
             }
@@ -452,17 +511,42 @@ fun CrearEventoScreen(
     if (mostrandoConfirmacion) {
         AlertDialog(
             onDismissRequest = { mostrandoConfirmacion = false },
-            title = { Text(if (esEdicion) "Confirmar edicion" else "Confirmar publicacion") },
-            text = {
+            containerColor = Color.White,
+            shape = RoundedCornerShape(22.dp),
+            title = {
                 Text(
-                    if (esEdicion) {
-                        "El evento se actualizara y quedara pendiente de validacion."
-                    } else if (esSuscriptor) {
-                        "Tu suscripcion cubre esta publicacion y el evento quedara pendiente de validacion."
-                    } else {
-                        "Se simulara el pago de publicacion y el evento quedara pendiente de validacion."
-                    }
+                    if (esEdicion) "Confirmar edicion" else "Confirmar publicacion",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
                 )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        if (esEdicion) {
+                            "El evento se actualizara y quedara pendiente de validacion."
+                        } else if (esSuscriptor) {
+                            "Tu suscripcion cubre esta publicacion y el evento quedara pendiente de validacion."
+                        } else {
+                            "Se simulara el pago de publicacion y el evento quedara pendiente de validacion."
+                        },
+                        color = Color(0xFF64748B)
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF8FAFC)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Estado", color = Color(0xFF64748B), style = MaterialTheme.typography.bodySmall)
+                            Text("Pendiente de validacion", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
@@ -518,7 +602,7 @@ fun CrearEventoScreen(
                     if (guardando) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp))
                     } else {
-                        Text("Confirmar")
+                        Text("Confirmar", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold)
                     }
                 }
             },

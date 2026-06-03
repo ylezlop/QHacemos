@@ -77,7 +77,8 @@ import com.example.qhacemos.notificaciones.NotificadorEventos
 @Composable
 fun EventDetailScreen(
     eventoId: Long,
-    navController: NavController
+    navController: NavController,
+    preferirEventoPropio: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -108,14 +109,28 @@ fun EventDetailScreen(
         cargandoEvento = true
         mensajeError = null
 
-        when (val resultado = cargarEventos(context)) {
-            is ResultadoEventos.Exito -> {
-                evento = resultado.eventos.find { it.id == eventoId }
+        val eventoPropio = if (preferirEventoPropio) {
+            GestorEventosOrganizador.obtenerEventoPorId(eventoId).getOrNull()
+        } else {
+            null
+        }
+
+        if (eventoPropio != null) {
+            evento = eventoPropio
+        } else {
+            when (val resultado = cargarEventos(context)) {
+                is ResultadoEventos.Exito -> {
+                    evento = resultado.eventos.find { it.id == eventoId }
+                }
+
+                is ResultadoEventos.Error -> {
+                    mensajeError = resultado.mensaje
+                    evento = resultado.eventosLocales.find { it.id == eventoId }
+                }
             }
 
-            is ResultadoEventos.Error -> {
-                mensajeError = resultado.mensaje
-                evento = resultado.eventosLocales.find { it.id == eventoId }
+            if (evento == null) {
+                evento = GestorEventosOrganizador.obtenerEventoPorId(eventoId).getOrNull()
             }
         }
 
@@ -181,9 +196,12 @@ fun EventDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
-                    .background(eventoActual.colorFondo)
+                    .height(220.dp)
             ) {
+                ImagenEvento(
+                    evento = eventoActual,
+                    modifier = Modifier.fillMaxSize()
+                )
                 IconButton(
                     onClick = { navController.popBackStack() },
                     modifier = Modifier.padding(16.dp)

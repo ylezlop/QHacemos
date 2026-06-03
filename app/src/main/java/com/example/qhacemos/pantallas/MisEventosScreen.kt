@@ -15,7 +15,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -118,6 +124,11 @@ fun MisEventosScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Mis eventos") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFF4F7FB),
+                    titleContentColor = Color(0xFF0F172A),
+                    navigationIconContentColor = Color(0xFF0F172A)
+                ),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
@@ -135,10 +146,32 @@ fun MisEventosScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                tonalElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("Tus publicaciones", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF0F172A))
+                    Text(
+                        "Consulta tus eventos, edita informacion y destaca publicaciones.",
+                        color = Color(0xFF64748B),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
             Button(
                 onClick = { navController.navigate(AppScreens.CrearEvento.route) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4))
             ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.padding(horizontal = 4.dp))
                 Text("Crear evento")
             }
 
@@ -161,13 +194,15 @@ fun MisEventosScreen(
             if (eventos.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text("Aun no has creado eventos.", fontWeight = FontWeight.Bold)
+                        Text("Cuando publiques uno nuevo aparecera aqui.", color = Color(0xFF64748B), fontSize = 13.sp)
                     }
                 }
                 return@Column
@@ -186,7 +221,7 @@ fun MisEventosScreen(
                         eventoADestacar = evento
                     },
                     onVer = {
-                        navController.navigate("${AppScreens.EventDetail.route}/${evento.id}")
+                        navController.navigate("${AppScreens.EventDetail.route}/${evento.id}/propio")
                     }
                 )
             }
@@ -198,8 +233,15 @@ fun MisEventosScreen(
     eventoAEliminar?.let { evento ->
         AlertDialog(
             onDismissRequest = { eventoAEliminar = null },
-            title = { Text("¿Eliminar publicación?") },
-            text = { Text("¿Estás seguro de que deseas eliminar '${evento.titulo}'? La publicación pasará a estado inactivo y ya no será visible.") },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(22.dp),
+            title = { Text("Eliminar publicacion", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "El evento '${evento.titulo}' pasara a estado inactivo y ya no sera visible para usuarios.",
+                    color = Color(0xFF64748B)
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -220,7 +262,7 @@ fun MisEventosScreen(
                                 }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB3261E))
                 ) {
                     Text("Confirmar eliminación")
                 }
@@ -236,19 +278,39 @@ fun MisEventosScreen(
     eventoADestacar?.let { evento ->
         AlertDialog(
             onDismissRequest = { if (!destacando) eventoADestacar = null },
-            title = { Text("Destacar evento") },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(22.dp),
+            title = { Text("Destacar evento", fontWeight = FontWeight.Bold) },
             text = {
-                Text(
-                    if (evento.estado.equals("publicado", ignoreCase = true)) {
-                        "Se simulara el pago de destaque semanal y el evento aparecera en la seccion de destacados."
-                    } else {
-                        "Se simulara el pago de destaque semanal. El evento quedara marcado como destacado y aparecera cuando este publicado."
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        if (evento.estado.equals("publicado", ignoreCase = true)) {
+                            "El evento aparecera en la seccion de destacados durante una semana."
+                        } else {
+                            "El evento quedara marcado como destacado y aparecera cuando sea publicado."
+                        },
+                        color = Color(0xFF64748B)
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF8FAFC)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Destaque semanal", color = Color(0xFF64748B), fontSize = 13.sp)
+                            Text("$99.00 MXN", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                        }
                     }
-                )
+                }
             },
             confirmButton = {
                 Button(
                     enabled = !destacando,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4)),
                     onClick = {
                         scope.launch {
                             destacando = true
@@ -278,7 +340,7 @@ fun MisEventosScreen(
                     if (destacando) {
                         CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Pagar y destacar")
+                        Text("Destacar")
                     }
                 }
             },
@@ -305,12 +367,23 @@ private fun TarjetaEventoPropio(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(18.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+            ) {
+                ImagenEvento(
+                    evento = evento,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,7 +396,7 @@ private fun TarjetaEventoPropio(
                 }
                 Text(
                     evento.estado.replace("_", " ").uppercase(),
-                    color = Color(0xFF0277BD),
+                    color = Color(0xFF0284C7),
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
                 )
@@ -343,18 +416,38 @@ private fun TarjetaEventoPropio(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(onClick = onVer, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Visibility, contentDescription = null)
+                    Spacer(modifier = Modifier.padding(horizontal = 3.dp))
                     Text("Ver")
                 }
-                Button(onClick = onEditar, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = onEditar,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null)
+                    Spacer(modifier = Modifier.padding(horizontal = 3.dp))
                     Text("Editar")
-                }
-                OutlinedButton(onClick = onEliminar, modifier = Modifier.weight(1f)) {
-                    Text("Eliminar")
                 }
             }
 
+            OutlinedButton(
+                onClick = onEliminar,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB3261E))
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null)
+                Spacer(modifier = Modifier.padding(horizontal = 3.dp))
+                Text("Eliminar")
+            }
+
             if (!evento.esDestacado && !evento.estado.equals("eliminado", ignoreCase = true)) {
-                Button(onClick = onDestacar, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onDestacar,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0EA5E9))
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null)
+                    Spacer(modifier = Modifier.padding(horizontal = 4.dp))
                     Text("Destacar")
                 }
             } else if (evento.esDestacado) {

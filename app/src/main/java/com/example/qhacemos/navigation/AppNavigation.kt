@@ -132,6 +132,16 @@ fun AppNavigation() {
             )
         }
 
+        composable("${AppScreens.EventDetail.route}/{eventoId}/propio") { backStackEntryInterna ->
+            val eventoId = backStackEntryInterna.arguments?.getString("eventoId")?.toLongOrNull()
+
+            EventDetailScreen(
+                eventoId = eventoId ?: 0L,
+                navController = navController,
+                preferirEventoPropio = true
+            )
+        }
+
         composable(AppScreens.CrearEvento.route) {
             CrearEventoScreen(
                 navController = navController,

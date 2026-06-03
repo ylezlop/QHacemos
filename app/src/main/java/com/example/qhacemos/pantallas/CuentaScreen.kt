@@ -1,23 +1,42 @@
 package com.example.qhacemos.pantallas
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,7 +50,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -144,105 +165,54 @@ fun CuentaScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Text(
-                text = "Mi cuenta",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 2.dp
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = perfil.nombre.ifBlank { "Usuario sin nombre" },
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(perfil.email, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(14.dp))
-                    EtiquetaRol(perfil.rolLegible, perfil.esAdmin)
-                }
-            }
+            CabeceraCuenta()
 
             if (perfil.esAdmin) {
-                Button(
-                    onClick = { navController.navigate(AppScreens.ValidarEventos.route) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Validar eventos")
-                }
-
-                Button(
-                    onClick = { navController.navigate(AppScreens.MetricasSistema.route) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Metricas del sistema")
-                }
-
-                Button(
-                    onClick = { navController.navigate(AppScreens.GestionUsuarios.route) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Gestionar usuarios")
+                GrupoAccionesCuenta(titulo = "Administracion") {
+                    OpcionCuenta(
+                        icono = Icons.Default.AdminPanelSettings,
+                        titulo = "Validar eventos",
+                        descripcion = "Revisa publicaciones pendientes",
+                        onClick = { navController.navigate(AppScreens.ValidarEventos.route) }
+                    )
+                    OpcionCuenta(
+                        icono = Icons.Default.QueryStats,
+                        titulo = "Metricas del sistema",
+                        descripcion = "Consulta actividad y uso de la app",
+                        onClick = { navController.navigate(AppScreens.MetricasSistema.route) }
+                    )
+                    OpcionCuenta(
+                        icono = Icons.Default.Groups,
+                        titulo = "Gestionar usuarios",
+                        descripcion = "Administra cuentas y estados",
+                        onClick = { navController.navigate(AppScreens.GestionUsuarios.route) },
+                        mostrarDivisor = false
+                    )
                 }
             }
 
             if (!perfil.esAdmin) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    tonalElevation = 2.dp
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = if (esSuscrito) "Estado: suscripcion activa" else "Estado: cuenta gratuita",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (esSuscrito) Color(0xFF1B5E20) else Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Con el Plan Premium puedes publicar eventos de forma ilimitada en Xalapa sin cargos por posteo individual.",
-                            fontSize = 13.sp,
-                            color = Color.Gray
-                        )
-                        if (!esSuscrito) {
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = { mostrarModalSuscripcion = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Contratar suscripcion mensual")
-                            }
-                        }
-                    }
-                }
+                PanelSuscripcionCuenta(
+                    esSuscrito = esSuscrito,
+                    onContratarClick = { mostrarModalSuscripcion = true }
+                )
 
-                Button(
-                    onClick = { navController.navigate(AppScreens.CrearEvento.route) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Publicar nuevo evento")
-                }
-
-                Button(
-                    onClick = { navController.navigate(AppScreens.MisEventos.route) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Mis eventos")
-                }
-
-                Button(
-                    onClick = { navController.navigate(AppScreens.MisEventos.route) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Destacar un evento")
+                GrupoAccionesCuenta(titulo = "Tus herramientas") {
+                    OpcionCuenta(
+                        icono = Icons.Default.Event,
+                        titulo = "Mis eventos",
+                        descripcion = "Edita, elimina o revisa tus publicaciones",
+                        onClick = { navController.navigate(AppScreens.MisEventos.route) }
+                    )
+                    OpcionCuenta(
+                        icono = Icons.Default.Star,
+                        titulo = "Destacar un evento",
+                        descripcion = "Impulsa uno de tus eventos publicados",
+                        onClick = { navController.navigate(AppScreens.MisEventos.route) },
+                        mostrarDivisor = false
+                    )
                 }
 
                 SeccionEventosUsuario(
@@ -259,15 +229,18 @@ fun CuentaScreen(
                 )
             }
 
-            Button(
+            OutlinedButton(
                 onClick = {
                     scope.launch {
                         GestorAutenticacion.cerrarSesion()
                         onLogout()
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB3261E))
             ) {
+                Icon(Icons.Default.Logout, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Cerrar sesion")
             }
         }
@@ -300,23 +273,58 @@ fun CuentaScreen(
     if (mostrarModalSuscripcion) {
         AlertDialog(
             onDismissRequest = { mostrarModalSuscripcion = false },
-            title = { Text("Suscripcion mensual creador") },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(22.dp),
+            title = {
+                Text(
+                    "Premium para creadores",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+            },
             text = {
-                Column {
-                    Text("Beneficios principales:", fontWeight = FontWeight.Bold)
-                    Text("- Publicacion de eventos de forma ilimitada durante 30 dias.")
-                    Text("- Tus publicaciones pasan a revision con prioridad alta.")
-                    Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE0F2FE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = Color(0xFF0284C7))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Publicacion ilimitada", fontWeight = FontWeight.Bold)
+                            Text("Durante 30 dias", color = Color(0xFF64748B), fontSize = 13.sp)
+                        }
+                    }
                     Text(
-                        "Precio: $299.00 MXN al mes",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        "Tus eventos pasan a revision con prioridad alta y no pagas por publicacion individual.",
+                        color = Color(0xFF64748B),
+                        fontSize = 13.sp
                     )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF8FAFC)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Mensualidad", color = Color(0xFF64748B), fontSize = 13.sp)
+                            Text("$299.00 MXN", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     enabled = !procesandoSuscripcion,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4)),
                     onClick = {
                         scope.launch {
                             procesandoSuscripcion = true
@@ -341,7 +349,7 @@ fun CuentaScreen(
                     if (procesandoSuscripcion) {
                         CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Confirmar pago")
+                        Text("Contratar")
                     }
                 }
             },
@@ -351,6 +359,175 @@ fun CuentaScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun CabeceraCuenta() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF0EA5E9),
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = "Yael",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun PanelSuscripcionCuenta(
+    esSuscrito: Boolean,
+    onContratarClick: () -> Unit
+) {
+    val colorEstado = if (esSuscrito) Color(0xFF15803D) else Color(0xFF64748B)
+    val fondoIcono = if (esSuscrito) Color(0xFFE7F8EE) else Color(0xFFE0F2FE)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(fondoIcono),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = Color(0xFF0284C7))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (esSuscrito) "Plan Premium activo" else "Cuenta gratuita",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = if (esSuscrito) {
+                            "Puedes publicar eventos sin limite mensual."
+                        } else {
+                            "Publica eventos de manera ilimitada con Premium"
+                        },
+                        color = Color(0xFF64748B),
+                        fontSize = 13.sp
+                    )
+                }
+                Text(
+                    text = if (esSuscrito) "Activo" else "Gratis",
+                    color = colorEstado,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+
+            if (!esSuscrito) {
+                Button(
+                    onClick = onContratarClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4))
+                ) {
+                    Text("Contratar suscripción")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GrupoAccionesCuenta(
+    titulo: String,
+    contenido: @Composable ColumnScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = titulo,
+            color = Color(0xFF334155),
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            tonalElevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                contenido()
+            }
+        }
+    }
+}
+
+@Composable
+fun OpcionCuenta(
+    icono: ImageVector,
+    titulo: String,
+    descripcion: String,
+    onClick: () -> Unit,
+    mostrarDivisor: Boolean = true
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE0F2FE)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icono, contentDescription = null, tint = Color(0xFF0284C7))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(titulo, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(descripcion, color = Color(0xFF64748B), fontSize = 12.sp)
+            }
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8))
+        }
+        if (mostrarDivisor) {
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 70.dp),
+                color = Color(0xFFE2E8F0)
+            )
+        }
     }
 }
 
@@ -404,13 +581,31 @@ fun SeccionEventosUsuario(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
+        color = Color.White,
         tonalElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("Eventos", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Mi agenda", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Eventos a los que asistiras o asististe", color = Color(0xFF64748B), fontSize = 12.sp)
+                }
+                if (eventos.isNotEmpty()) {
+                    Text(
+                        text = eventos.size.toString(),
+                        color = Color(0xFF0284C7),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
 
             mensajeError?.let {
                 Text(it, color = Color(0xFFB3261E), fontSize = 13.sp)
@@ -429,11 +624,18 @@ fun SeccionEventosUsuario(
             }
 
             if (eventos.isEmpty()) {
-                Text(
-                    text = "Cuando marques Asistire en un evento, aparecera aqui.",
-                    color = Color.Gray,
-                    fontSize = 13.sp
-                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFF8FAFC)
+                ) {
+                    Text(
+                        text = "Cuando marques Asistire en un evento, aparecera aqui.",
+                        modifier = Modifier.padding(16.dp),
+                        color = Color(0xFF64748B),
+                        fontSize = 13.sp
+                    )
+                }
                 return@Column
             }
 
@@ -441,18 +643,18 @@ fun SeccionEventosUsuario(
             val eventosPasados = eventos.filter { it.yaOcurrio }
 
             if (eventosActivos.isNotEmpty()) {
-                Text("Activos", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Proximos", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF334155))
                 eventosActivos.forEach { evento ->
                     TarjetaEventoCuenta(
                         evento = evento,
-                        etiqueta = "Pendiente",
+                        etiqueta = "Proximo",
                         onEventoClick = onEventoClick
                     )
                 }
             }
 
             if (eventosPasados.isNotEmpty()) {
-                Text("Pasados", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Pasados", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF334155))
                 eventosPasados.forEach { evento ->
                     TarjetaEventoCuenta(
                         evento = evento,
@@ -478,7 +680,9 @@ fun TarjetaEventoCuenta(
     onCalificarClick: (() -> Unit)? = null
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEventoClick(evento) },
         shape = RoundedCornerShape(14.dp),
         color = Color(0xFFF8FAFC)
     ) {
@@ -492,24 +696,34 @@ fun TarjetaEventoCuenta(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(evento.titulo, fontWeight = FontWeight.Bold)
-                    Text(evento.fechaTexto, color = Color.Gray, fontSize = 12.sp)
+                    Text(evento.titulo, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                    Text(evento.fechaTexto, color = Color(0xFF64748B), fontSize = 12.sp)
                     Text(
                         evento.organizadorNombre.ifBlank { "Organizador no disponible" },
-                        color = Color.Gray,
+                        color = Color(0xFF64748B),
                         fontSize = 12.sp
                     )
                 }
-                Text(etiqueta, color = Color(0xFF0277BD), fontSize = 12.sp)
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFFE0F2FE), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(etiqueta, color = Color(0xFF0277BD), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { onEventoClick(evento) }) {
-                    Text("Ver evento")
-                }
                 if (onCalificarClick != null) {
-                    Button(onClick = onCalificarClick) {
+                    Button(
+                        onClick = onCalificarClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF03A9F4))
+                    ) {
                         Text("Calificar organizador")
+                    }
+                } else {
+                    TextButton(onClick = { onEventoClick(evento) }) {
+                        Text("Ver detalle")
                     }
                 }
             }

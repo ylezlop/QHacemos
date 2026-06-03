@@ -60,8 +60,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -73,7 +71,6 @@ import java.text.Normalizer
 import java.time.format.TextStyle
 import java.util.Locale
 import android.os.Build
-import androidx.compose.runtime.LaunchedEffect
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -96,7 +93,6 @@ fun PantallaPrincipal(navController: NavController) {
     val contexto = LocalContext.current
     val backStackEntry by navController.currentBackStackEntryAsState()
     var listaEventos by remember { mutableStateOf<List<Evento>>(emptyList()) }
-    var cargando by remember { mutableStateOf(true) }
     var cargandoEventos by remember { mutableStateOf(true) }
     var mensajeError by remember { mutableStateOf<String?>(null) }
     var busqueda by remember { mutableStateOf("") }
@@ -143,24 +139,6 @@ fun PantallaPrincipal(navController: NavController) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 intentoCarga++ // Incrementa el contador para disparar el LaunchedEffect
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    LaunchedEffect(intentoCarga) {
-        cargando = true
-        listaEventos = com.example.qhacemos.datos.obtenerEventos(contexto)
-        cargando = false
-    }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                intentoCarga++
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -809,8 +787,11 @@ fun TarjetaEventoDestacado(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp)
-                    .background(evento.colorFondo)
             ) {
+                ImagenEvento(
+                    evento = evento,
+                    modifier = Modifier.fillMaxSize()
+                )
                 Surface(
                     color = if (evento.esGratis) Color(0xFF00BFA5) else Color(0xFFFF7A1A),
                     shape = RoundedCornerShape(16.dp),
@@ -873,8 +854,11 @@ fun TarjetaProximoEvento(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .background(evento.colorFondo)
             ) {
+                ImagenEvento(
+                    evento = evento,
+                    modifier = Modifier.fillMaxSize()
+                )
                 Surface(
                     color = if (evento.esGratis) Color(0xFF00BFA5) else Color(0xFFFF7A1A),
                     shape = RoundedCornerShape(16.dp),
@@ -988,7 +972,11 @@ fun BarraNavegacionInferior(
             },
             label = { Text("Crear") },
             selected = false,
-            onClick = { }
+            onClick = {
+                navController.navigate(AppScreens.CrearEvento.route) {
+                    launchSingleTop = true
+                }
+            }
         )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Person, contentDescription = "Cuenta") },
