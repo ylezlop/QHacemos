@@ -185,9 +185,9 @@ fun BrujulaEventosScreen(navController: NavController) {
         }
 
         when (val resultado = cargarEventos(context)) {
-            is ResultadoEventos.Exito -> eventos = resultado.eventos.filter { it.esVisibleParaUsuarios() && it.tieneCoordenadas }
+            is ResultadoEventos.Exito -> eventos = resultado.eventos.filter { it.esVisibleParaUsuarios() && it.tieneCoordenadas && !it.yaOcurrio }
             is ResultadoEventos.Error -> {
-                eventos = resultado.eventosLocales.filter { it.esVisibleParaUsuarios() && it.tieneCoordenadas }
+                eventos = resultado.eventosLocales.filter { it.esVisibleParaUsuarios() && it.tieneCoordenadas && !it.yaOcurrio }
                 mensaje = resultado.mensaje
             }
         }
@@ -475,10 +475,10 @@ private fun tienePermisoUbicacion(context: Context): Boolean {
         context,
         Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
 }
 
 @SuppressLint("MissingPermission")

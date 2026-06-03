@@ -61,14 +61,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.qhacemos.datos.GestorAsistencias
 import com.example.qhacemos.datos.GestorAutenticacion
+import com.example.qhacemos.datos.GestorEventosOrganizador
+import com.example.qhacemos.datos.GestorMetricas
 import com.example.qhacemos.datos.GestorReportes
 import com.example.qhacemos.datos.ResultadoEventos
 import com.example.qhacemos.datos.cargarEventos
 import com.example.qhacemos.modelo.Evento
 import com.example.qhacemos.modelo.PerfilUsuario
 import com.example.qhacemos.navigation.AppScreens
+import com.example.qhacemos.notificaciones.GestorRecordatorios
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.example.qhacemos.notificaciones.NotificadorEventos
 
 @Composable
 fun EventDetailScreen(
@@ -84,12 +88,14 @@ fun EventDetailScreen(
     var asistiraEvento by remember { mutableStateOf(false) }
     var guardandoAsistencia by remember { mutableStateOf(false) }
     var intentoCarga by remember { mutableStateOf(0) }
+    var vistaRegistrada by remember(eventoId) { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     var perfilActual by remember { mutableStateOf<PerfilUsuario?>(null) }
     var mostrarDialogoReporte by remember { mutableStateOf(false) }
     var motivoReporte by remember { mutableStateOf("") }
     var enviandoReporte by remember { mutableStateOf(false) }
     var conteoReportes by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var mostrarConfirmacionEliminar by remember { mutableStateOf(false) }
 
     LaunchedEffect(eventoId) {
         perfilActual = GestorAutenticacion.cargarPerfilActual().getOrNull()
@@ -110,6 +116,14 @@ fun EventDetailScreen(
             is ResultadoEventos.Error -> {
                 mensajeError = resultado.mensaje
                 evento = resultado.eventosLocales.find { it.id == eventoId }
+            }
+        }
+
+        evento?.let { eventoEncontrado ->
+            if (!vistaRegistrada && eventoEncontrado.esVisibleParaUsuarios()) {
+                GestorMetricas.registrarVista(eventoEncontrado)
+                evento = eventoEncontrado.copy(vistas = eventoEncontrado.vistas + 1)
+                vistaRegistrada = true
             }
         }
 
@@ -241,42 +255,59 @@ fun EventDetailScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    val puedeMarcarAsistencia = !eventoActual.yaOcurrio && !asistiraEvento && !guardandoAsistencia
+                   val puedeInteractuarAsistencia = !eventoActual.yaOcurrio && !guardandoAsistencia
 
                     Button(
                         onClick = {
                             scope.launch {
                                 guardandoAsistencia = true
-                                val resultado = GestorAsistencias.registrarAsistencia(eventoActual)
-                                resultado
-                                    .onSuccess {
-                                        asistiraEvento = true
-                                        Toast
-                                            .makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT)
-                                            .show()
-                                    }
-                                    .onFailure { error ->
-                                        Toast
-                                            .makeText(
+                                if (asistiraEvento) {
+                                    GestorAsistencias.eliminarAsistencia(eventoActual.id)
+                                        .onSuccess {
+                                            asistiraEvento = false
+                                            GestorRecordatorios.cancelarRecordatorio(context, eventoActual.id)
+                                            Toast.makeText(context, "Asistencia cancelada exitosamente", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .onFailure { error ->
+                                            Toast.makeText(
+                                                context,
+                                                error.message ?: "No se pudo cancelar tu asistencia",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                } else {
+                                    val resultado = GestorAsistencias.registrarAsistencia(eventoActual)
+                                    resultado
+                                        .onSuccess {
+                                            asistiraEvento = true
+                                            GestorRecordatorios.programarRecordatorio(context, eventoActual)
+                                            GestorMetricas.registrarGuardado(eventoActual)
+                                            evento = eventoActual.copy(guardados = eventoActual.guardados + 1)
+                                            Toast.makeText(context, "Evento agregado a tus asistencias", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .onFailure { error ->
+                                            Toast.makeText(
                                                 context,
                                                 error.message ?: "No se pudo registrar tu asistencia",
                                                 Toast.LENGTH_SHORT
-                                            )
-                                            .show()
-                                    }
+                                            ).show()
+                                        }
+                                }
                                 guardandoAsistencia = false
                             }
                         },
-                        enabled = puedeMarcarAsistencia,
+                        enabled = puedeInteractuarAsistencia,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A1A))
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (asistiraEvento) Color.Gray else Color(0xFFFF7A1A)
+                        )
                     ) {
                         Text(
                             when {
                                 eventoActual.yaOcurrio -> "Evento pasado"
-                                asistiraEvento -> "Ya marcado"
-                                guardandoAsistencia -> "Guardando"
-                                else -> "Asistire"
+                                guardandoAsistencia -> "Procesando..."
+                                asistiraEvento -> "¡Asistiré! ✓" // Texto indicativo de que está seleccionado
+                                else -> "Asistiré"
                             }
                         )
                     }
@@ -284,7 +315,13 @@ fun EventDetailScreen(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Button(
-                        onClick = { mostrarDialogoCompartir = true },
+                        onClick = {
+                            scope.launch {
+                                GestorMetricas.registrarClick(eventoActual)
+                                evento = eventoActual.copy(clicks = eventoActual.clicks + 1)
+                            }
+                            mostrarDialogoCompartir = true
+                        },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81D4FA))
                     ) {
@@ -309,6 +346,22 @@ fun EventDetailScreen(
                 )
 
                 if (perfilActual?.esAdmin == true) {
+
+                    Button(
+                        onClick = {
+                            val notificador = NotificadorEventos(context)
+                            notificador.mostrarNotificacionBasica(
+                                titulo = "Prueba de notificación",
+                                mensaje = "Click para abrir: ${eventoActual.titulo}",
+                                eventoId = eventoActual.id // Pasamos el ID del evento actual
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+                    ) {
+                        Text("Probar Notificación de este evento")
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
@@ -329,7 +382,7 @@ fun EventDetailScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Button(
-                                onClick = { /* TODO: Lógica para eliminar el evento */ },
+                                onClick = { mostrarConfirmacionEliminar = true },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color.Red,
                                     contentColor = Color.White
@@ -423,6 +476,48 @@ fun EventDetailScreen(
             }
         )
     }
+
+    if (mostrarConfirmacionEliminar) {
+        AlertDialog(
+            onDismissRequest = { mostrarConfirmacionEliminar = false },
+            title = { Text("¿Eliminar evento?") },
+            text = { Text("Esta acción ocultará permanentemente el evento para los usuarios de la plataforma.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            GestorEventosOrganizador.eliminarEvento(eventoActual.id)
+                                .onSuccess { exito ->
+                                    if (exito) {
+                                        Toast.makeText(context, "Evento eliminado con éxito", Toast.LENGTH_SHORT).show()
+                                        mostrarConfirmacionEliminar = false
+                                        // Limpiamos la pila y regresamos al Home para no quedarnos en una pantalla fantasma
+                                        navController.navigate(AppScreens.Home.route) {
+                                            popUpTo(AppScreens.Home.route) { inclusive = true }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "No se pudo eliminar el evento", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .onFailure { error ->
+                                    Toast.makeText(context, error.message ?: "Error de red al intentar eliminar", Toast.LENGTH_SHORT).show()
+                                    mostrarConfirmacionEliminar = false
+                                }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarConfirmacionEliminar = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
 }
 
 @Composable

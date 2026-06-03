@@ -3,15 +3,10 @@ package com.example.qhacemos.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -19,14 +14,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
 import com.example.qhacemos.datos.GestorAutenticacion
 import com.example.qhacemos.modelo.PerfilUsuario
-import com.example.qhacemos.pantallas.BrujulaEventosScreen
-import com.example.qhacemos.pantallas.CuentaScreen
-import com.example.qhacemos.pantallas.EventDetailScreen
-import com.example.qhacemos.pantallas.LoginScreen
-import com.example.qhacemos.pantallas.MisEventosScreen
-import com.example.qhacemos.pantallas.PantallaPrincipal
+import com.example.qhacemos.pantallas.*
 import kotlinx.coroutines.launch
-import com.example.qhacemos.pantallas.CrearEventoScreen
 
 @Composable
 fun AppNavigation() {
@@ -34,6 +23,21 @@ fun AppNavigation() {
     val scope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = backStackEntry?.destination?.route
+    val context = LocalContext.current
+
+    val activity = context as? android.app.Activity
+    val intent = activity?.intent
+
+
+    var pendingEventoId by remember {
+        mutableStateOf(
+            if (intent?.data?.scheme == "qhacemos") {
+                intent.data?.lastPathSegment
+            }else{
+                null
+            }
+        )
+    }
 
     var cargandoSesion by remember { mutableStateOf(true) }
     var perfilActual by remember { mutableStateOf<PerfilUsuario?>(null) }
@@ -41,6 +45,13 @@ fun AppNavigation() {
     LaunchedEffect(Unit) {
         perfilActual = GestorAutenticacion.cargarPerfilActual().getOrNull()
         cargandoSesion = false
+    }
+
+    if (cargandoSesion) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
     }
 
     LaunchedEffect(perfilActual, rutaActual, cargandoSesion) {
@@ -54,21 +65,22 @@ fun AppNavigation() {
         }
 
         if (perfilActual != null && rutaActual == AppScreens.Login.route) {
-            navController.navigate(AppScreens.Home.route) {
-                popUpTo(AppScreens.Login.route) { inclusive = true }
-                launchSingleTop = true
+            if (pendingEventoId != null) {
+                val rutaDestino = "${AppScreens.EventDetail.route}/$pendingEventoId"
+
+                navController.navigate(rutaDestino) {
+                    popUpTo(AppScreens.Login.route) { inclusive = true }
+                }
+
+                pendingEventoId = null
+                activity?.intent?.data = null
+            } else {
+                navController.navigate(AppScreens.Home.route) {
+                    popUpTo(AppScreens.Login.route) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
-    }
-
-    if (cargandoSesion) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-        return
     }
 
     NavHost(
@@ -102,6 +114,10 @@ fun AppNavigation() {
 
         composable(AppScreens.Compass.route) {
             BrujulaEventosScreen(navController = navController)
+        }
+
+        composable(AppScreens.Mapa.route) {
+            MapaEventosScreen(navController = navController)
         }
 
         composable(
@@ -138,6 +154,17 @@ fun AppNavigation() {
                 perfilActual = perfilActual
             )
         }
-    }
 
+        composable(AppScreens.MetricasSistema.route) {
+            MetricasSistemaScreen(navController = navController)
+        }
+
+        composable(AppScreens.ValidarEventos.route) {
+            ValidarEventosScreen(navController = navController)
+        }
+
+        composable(AppScreens.GestionUsuarios.route) {
+            GestionUsuariosScreen(navController = navController)
+        }
+    }
 }

@@ -7,11 +7,15 @@ data class PerfilUsuario(
     val id: String = "",
     val nombre: String = "",
     val email: String = "",
-    val rol: String = "usuario"
+    val rol: String = "usuario",
+    val estado: String = "activo"
 ) {
     val esAdmin: Boolean
         get() = rol.equals("admin", ignoreCase = true)
 
     val rolLegible: String
         get() = if (esAdmin) "Administrador" else "Usuario"
+
+    val estaSuspendido: Boolean
+        get() = estado.equals("suspendido", ignoreCase = true)
 }

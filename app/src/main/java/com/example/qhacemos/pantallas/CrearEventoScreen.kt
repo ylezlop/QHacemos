@@ -47,7 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.qhacemos.BuildConfig
 import com.example.qhacemos.datos.GestorEventosOrganizador
 import com.example.qhacemos.modelo.Evento
 import com.example.qhacemos.modelo.PerfilUsuario
@@ -59,6 +58,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberMarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -133,6 +133,7 @@ fun CrearEventoScreen(
 
     var mostrandoConfirmacion by remember { mutableStateOf(false) }
     var guardando by remember { mutableStateOf(false) }
+    var esSuscriptor by remember { mutableStateOf(false) }
 
     val posicionMapa = coordenadasSeleccionadas ?: UBICACION_XALAPA
     val cameraPositionState = rememberCameraPositionState {
@@ -149,6 +150,12 @@ fun CrearEventoScreen(
         coordenadasSeleccionadas?.let {
             cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(it, 16f))
         }
+    }
+
+    LaunchedEffect(perfilActual?.id) {
+        val perfil = perfilActual ?: return@LaunchedEffect
+        com.example.qhacemos.datos.GestorSuscripciones.verificarSuscripcionActiva(perfil.id)
+            .onSuccess { esSuscriptor = it }
     }
 
     LaunchedEffect(eventoId) {
@@ -315,13 +322,7 @@ fun CrearEventoScreen(
                 }
             }
 
-            if (BuildConfig.MAPS_API_KEY.isBlank()) {
-                Text(
-                    text = "Configura MAPS_API_KEY en local.properties para mostrar el mapa.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            } else if (!tieneGooglePlayServices(contexto)) {
+            if (!tieneGooglePlayServices(contexto)) {
                 Text(
                     text = "Google Play Services no esta disponible para mostrar el mapa en este dispositivo.",
                     color = MaterialTheme.colorScheme.error,
@@ -339,7 +340,7 @@ fun CrearEventoScreen(
                 ) {
                     coordenadasSeleccionadas?.let { posicion ->
                         Marker(
-                            state = MarkerState(position = posicion),
+                            state = rememberMarkerState(position = posicion),
                             title = titulo.ifBlank { "Evento" }
                         )
                     }
@@ -411,6 +412,16 @@ fun CrearEventoScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            Text(
+                text = if (esSuscriptor) {
+                    "Publicacion incluida en tu suscripcion mensual."
+                } else {
+                    "Publicacion individual: $50.00 MXN."
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+
             Button(
                 onClick = {
                     val error = validarFormularioEvento(
@@ -446,6 +457,8 @@ fun CrearEventoScreen(
                 Text(
                     if (esEdicion) {
                         "El evento se actualizara y quedara pendiente de validacion."
+                    } else if (esSuscriptor) {
+                        "Tu suscripcion cubre esta publicacion y el evento quedara pendiente de validacion."
                     } else {
                         "Se simulara el pago de publicacion y el evento quedara pendiente de validacion."
                     }
@@ -470,6 +483,7 @@ fun CrearEventoScreen(
                             categoria = categoria,
                             contactoOrganizador = contactoOrganizador,
                             costoTexto = costoTexto,
+                            tipoPublicacion = if (esSuscriptor) "suscripcion" else "pago_individual",
                             colorHex = colorHex,
                             imagenes = imagenesSeleccionadas
                         )
@@ -478,7 +492,7 @@ fun CrearEventoScreen(
                             val resultado = if (esEdicion) {
                                 GestorEventosOrganizador.actualizarEvento(evento)
                             } else {
-                                GestorEventosOrganizador.publicarEvento(evento, 50.0)
+                                GestorEventosOrganizador.publicarEvento(evento, if (esSuscriptor) 0.0 else 50.0)
                             }
                             guardando = false
 
@@ -562,6 +576,7 @@ private fun construirEventoFormulario(
     categoria: String,
     contactoOrganizador: String,
     costoTexto: String,
+    tipoPublicacion: String,
     colorHex: String,
     imagenes: List<String>
 ): Evento {
@@ -588,7 +603,7 @@ private fun construirEventoFormulario(
         moneda = "MXN",
         esDestacado = eventoOriginal?.esDestacado ?: false,
         esGratis = costo <= 0.0,
-        tipoPublicacion = eventoOriginal?.tipoPublicacion ?: "pago",
+        tipoPublicacion = eventoOriginal?.tipoPublicacion ?: tipoPublicacion,
         estado = "pendiente_validacion",
         imagenPrincipalUrl = imagenPrincipal,
         imagenes = imagenes,

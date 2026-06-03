@@ -72,6 +72,11 @@ import com.example.qhacemos.navigation.AppScreens
 import java.text.Normalizer
 import java.time.format.TextStyle
 import java.util.Locale
+import android.os.Build
+import androidx.compose.runtime.LaunchedEffect
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
 private const val CATEGORIA_TODOS = "Todos"
 private const val FILTRO_PRECIO_TODOS = "Todos"
@@ -85,15 +90,15 @@ private val CATEGORIAS_EVENTOS = listOf(
     "Otros"
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun PantallaPrincipal(navController: NavController) {
     val contexto = LocalContext.current
     val backStackEntry by navController.currentBackStackEntryAsState()
     var listaEventos by remember { mutableStateOf<List<Evento>>(emptyList()) }
+    var cargando by remember { mutableStateOf(true) }
     var cargandoEventos by remember { mutableStateOf(true) }
     var mensajeError by remember { mutableStateOf<String?>(null) }
-    var intentoCarga by remember { mutableStateOf(0) }
     var busqueda by remember { mutableStateOf("") }
     var categoriaSeleccionada by remember { mutableStateOf(CATEGORIA_TODOS) }
     var filtroPrecio by remember { mutableStateOf(FILTRO_PRECIO_TODOS) }
@@ -102,7 +107,20 @@ fun PantallaPrincipal(navController: NavController) {
     var filtroFechaActivo by remember { mutableStateOf(false) }
     var filtroUbicacionActivo by remember { mutableStateOf(false) }
     var mostrarFiltros by remember { mutableStateOf(false) }
+    var intentoCarga by remember { mutableStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val permissionState = rememberPermissionState(
+            android.Manifest.permission.POST_NOTIFICATIONS
+        )
+
+        LaunchedEffect(Unit) {
+            if (!permissionState.status.isGranted) {
+                permissionState.launchPermissionRequest()
+            }
+        }
+    }
 
     LaunchedEffect(contexto, intentoCarga) {
         cargandoEventos = true
@@ -119,6 +137,24 @@ fun PantallaPrincipal(navController: NavController) {
             }
         }
         cargandoEventos = false
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                intentoCarga++ // Incrementa el contador para disparar el LaunchedEffect
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(intentoCarga) {
+        cargando = true
+        listaEventos = com.example.qhacemos.datos.obtenerEventos(contexto)
+        cargando = false
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -929,14 +965,15 @@ fun BarraNavegacionInferior(
         )
         NavigationBarItem(
             icon = {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = "Mapa"
-                )
+                Icon(Icons.Default.LocationOn, contentDescription = "Mapa")
             },
             label = { Text("Mapa") },
-            selected = false,
-            onClick = { }
+            selected = rutaActual == AppScreens.Mapa.route,
+            onClick = {
+                navController.navigate(AppScreens.Mapa.route) {
+                    launchSingleTop = true
+                }
+            }
         )
         NavigationBarItem(
             icon = {

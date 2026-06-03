@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -71,6 +73,8 @@ fun MisEventosScreen(
     var intentoCarga by remember { mutableStateOf(0) }
     var eventoAEliminar by remember { mutableStateOf<Evento?>(null) }
     var eliminando by remember { mutableStateOf(false) }
+    var eventoADestacar by remember { mutableStateOf<Evento?>(null) }
+    var destacando by remember { mutableStateOf(false) }
 
     LaunchedEffect(perfilActual?.id, intentoCarga) {
         val perfil = perfilActual
@@ -178,6 +182,9 @@ fun MisEventosScreen(
                     onEliminar = {
                         eventoAEliminar = evento
                     },
+                    onDestacar = {
+                        eventoADestacar = evento
+                    },
                     onVer = {
                         navController.navigate("${AppScreens.EventDetail.route}/${evento.id}")
                     }
@@ -190,45 +197,95 @@ fun MisEventosScreen(
 
     eventoAEliminar?.let { evento ->
         AlertDialog(
-            onDismissRequest = { if (!eliminando) eventoAEliminar = null },
-            title = { Text("Eliminar evento") },
+            onDismissRequest = { eventoAEliminar = null },
+            title = { Text("¿Eliminar publicación?") },
+            text = { Text("¿Estás seguro de que deseas eliminar '${evento.titulo}'? La publicación pasará a estado inactivo y ya no será visible.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            GestorEventosOrganizador.eliminarEvento(evento.id)
+                                .onSuccess { exito ->
+                                    if (exito) {
+                                        Toast.makeText(context, "Publicación eliminada correctamente", Toast.LENGTH_SHORT).show()
+                                        eventoAEliminar = null
+                                        intentoCarga++ // Dispara el LaunchedEffect para refrescar la lista visualmente
+                                    } else {
+                                        Toast.makeText(context, "No se pudo completar la acción", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .onFailure { error ->
+                                    Toast.makeText(context, error.message ?: "Fallo de conexión", Toast.LENGTH_SHORT).show()
+                                    eventoAEliminar = null
+                                }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Confirmar eliminación")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { eventoAEliminar = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    eventoADestacar?.let { evento ->
+        AlertDialog(
+            onDismissRequest = { if (!destacando) eventoADestacar = null },
+            title = { Text("Destacar evento") },
             text = {
-                Text("El evento dejara de aparecer para los usuarios. Esta accion no elimina asistencias ni calificaciones relacionadas.")
+                Text(
+                    if (evento.estado.equals("publicado", ignoreCase = true)) {
+                        "Se simulara el pago de destaque semanal y el evento aparecera en la seccion de destacados."
+                    } else {
+                        "Se simulara el pago de destaque semanal. El evento quedara marcado como destacado y aparecera cuando este publicado."
+                    }
+                )
             },
             confirmButton = {
                 Button(
-                    enabled = !eliminando,
+                    enabled = !destacando,
                     onClick = {
                         scope.launch {
-                            eliminando = true
-                            GestorEventosOrganizador.eliminarEvento(evento.id)
-                                .onSuccess {
-                                    eventos = eventos.filterNot { it.id == evento.id }
-                                    Toast.makeText(context, "Evento eliminado", Toast.LENGTH_LONG).show()
-                                    eventoAEliminar = null
+                            destacando = true
+                            GestorEventosOrganizador.destacarEvento(evento.id, "semanal", 99.0)
+                                .onSuccess { actualizado ->
+                                    if (actualizado) {
+                                        eventos = eventos.map {
+                                            if (it.id == evento.id) it.copy(esDestacado = true, tipoPublicacion = "destacada") else it
+                                        }
+                                        Toast.makeText(context, "Evento destacado", Toast.LENGTH_LONG).show()
+                                        eventoADestacar = null
+                                    } else {
+                                        Toast.makeText(context, "No se encontro el evento", Toast.LENGTH_LONG).show()
+                                    }
                                 }
                                 .onFailure { error ->
                                     Toast.makeText(
                                         context,
-                                        error.message ?: "No se pudo eliminar el evento",
+                                        error.message ?: "No se pudo destacar el evento",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }
-                            eliminando = false
+                            destacando = false
                         }
                     }
                 ) {
-                    if (eliminando) {
+                    if (destacando) {
                         CircularProgressIndicator(modifier = Modifier.height(18.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Eliminar")
+                        Text("Pagar y destacar")
                     }
                 }
             },
             dismissButton = {
                 TextButton(
-                    enabled = !eliminando,
-                    onClick = { eventoAEliminar = null }
+                    enabled = !destacando,
+                    onClick = { eventoADestacar = null }
                 ) {
                     Text("Cancelar")
                 }
@@ -242,6 +299,7 @@ private fun TarjetaEventoPropio(
     evento: Evento,
     onEditar: () -> Unit,
     onEliminar: () -> Unit,
+    onDestacar: () -> Unit,
     onVer: () -> Unit
 ) {
     Card(
@@ -275,6 +333,15 @@ private fun TarjetaEventoPropio(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                DatoEstadistica("Vistas", evento.vistas.toString(), Modifier.weight(1f))
+                DatoEstadistica("Clicks", evento.clicks.toString(), Modifier.weight(1f))
+                DatoEstadistica("Guardados", evento.guardados.toString(), Modifier.weight(1f))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(onClick = onVer, modifier = Modifier.weight(1f)) {
                     Text("Ver")
                 }
@@ -285,6 +352,35 @@ private fun TarjetaEventoPropio(
                     Text("Eliminar")
                 }
             }
+
+            if (!evento.esDestacado && !evento.estado.equals("eliminado", ignoreCase = true)) {
+                Button(onClick = onDestacar, modifier = Modifier.fillMaxWidth()) {
+                    Text("Destacar")
+                }
+            } else if (evento.esDestacado) {
+                Text("Destacado activo", color = Color(0xFF1B5E20), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DatoEstadistica(
+    etiqueta: String,
+    valor: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF4F7FB)
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(valor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(etiqueta, color = Color.Gray, fontSize = 11.sp)
         }
     }
 }
